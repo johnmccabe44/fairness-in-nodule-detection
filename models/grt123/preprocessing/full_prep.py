@@ -162,6 +162,8 @@ def savenpy_summit(id, scanpath_list, prep_folder, use_existing=True, metadata_p
     _, name_ext = os.path.split(scan_path)
     name, ext = name_ext.split('.')
 
+    print('Preparing ...', name)
+
     if use_existing:
         if os.path.exists(os.path.join(prep_folder,name+'_label.npy')) and os.path.exists(os.path.join(prep_folder,name+'_clean.npy')):
             print(name+' had been done')
