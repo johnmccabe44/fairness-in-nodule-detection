@@ -375,12 +375,13 @@ if __name__=='__main__':
     n_worker_preprocessing=config['n_worker_preprocessing']
     scanlist_path=config['scanlist_path']
     metadata_path=config['metadata_path']
+    use_existing=config['use_existing']
 
 
     full_prep_summit(data_path=datapath,
                      prep_folder=prep_result_path,
                      scanlist_path=scanlist_path,
                      n_worker=n_worker_preprocessing,
-                     use_existing=False,
+                     use_existing=use_existing,
                      metadata_path=metadata_path)
     
