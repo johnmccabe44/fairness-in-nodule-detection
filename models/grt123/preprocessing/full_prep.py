@@ -321,11 +321,13 @@ def full_prep_summit(data_path, prep_folder, scanlist_path, n_worker = None, use
     print('starting preprocessing')
     
 
-    scan_paths = [
-            os.path.join(data_path, scan_id.split('_')[0], scan_id+'.mhd')
-            for scan_id in pandas.read_csv(scanlist_path)['scan_id'].tolist()
-            if os.path.exists(os.path.join(data_path, scan_id.split('_')[0], scan_id+'.mhd'))
-    ]
+    scan_paths = []
+            
+    for scan_id in pandas.read_csv(scanlist_path)['scan_id'].tolist():
+        if os.path.exists(os.path.join(data_path, scan_id.split('_')[0], scan_id+'.mhd')):
+            scan_paths.append(os.path.join(data_path, scan_id.split('_')[0], scan_id+'.mhd'))
+        else:
+            print(f"Scan is not cached:{os.path.join(data_path, scan_id.split('_')[0], scan_id+'.mhd')}", flush=True)
 
     filelist = [
         scan_id
