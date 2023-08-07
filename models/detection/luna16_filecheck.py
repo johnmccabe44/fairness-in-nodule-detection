@@ -1,39 +1,54 @@
+from functools import partial
+import json
+from multiprocessing import Pool
 import numpy as np
+import os
+import pandas as pd
 from pathlib import Path
 import SimpleITK as sitk
 import sys
+from typing import List
 
-def check_integrity(mhd_path: Path):
+def check_integrity(idx: int, mhd_paths: List[Path]):
 
-    if not mhd_path.exists():
-        print(f'{mhd_path} doesnt exist.')
-        return False
+    mhd_path = mhd_paths[idx]
     
     try:
         # read in the scan
         metadata = sitk.ReadImage(mhd_path)
-        image = np.array(sitk.GetArrayFromImage(metadata), dtype=np.int16)
+        _ = np.array(sitk.GetArrayFromImage(metadata), dtype=np.int16)
+        print(f'{mhd_path},1')
         return True
 
     except Exception as err:
 
-        print(f'{mhd_path}, error reading: {err.__str__()}')
+        print(f'{mhd_path},0')
         return False
-    
-def main(path_to_mhds):
 
-    with open('mhd_checks.csv', 'w') as f: 
-        for mhd_path in Path(path_to_mhds).iterdir():
-            
-            if mhd_path.as_posix().endswith('.mhd'):
-                if check_integrity(mhd_path):
-                    f.write(f'{mhd_path},1')
-                else:
-                    f.write(f'{mhd_path},0')
-                f.write('\n')
+def main(mhd_root: Path, sub_processes: int):
+    """
+        Programme orchastrator
+        - gets list of luna16 mhds from the decathalon json files
+        - checks whether the file can be opened with sitk mhd reader
+        - saves the outcome to a file so that it can be checked
+    """
 
+    mhd_paths = [mhd_path for mhd_path in mhd_root.iterdir() if mhd_path.as_posix().endswith('.mhd')]
+
+    N = len(mhd_paths)
+    partial_check_integrity = partial(check_integrity, 
+                                      mhd_paths=mhd_paths)
+
+    with Pool(sub_processes) as pool:
+        _ = pool.map(partial_check_integrity, range(N))
 
 if __name__ == '__main__':
+    """
+        Programme entry point
+    """
+    mhd_root        = Path(sys.argv[1])
+    sub_processes   = int(sys.argv[2])
 
-    path_to_mhds = sys.argv[1]
-    main(path_to_mhds)
+    main(mhd_root=mhd_root, sub_processes=sub_processes)
+    
+                    
