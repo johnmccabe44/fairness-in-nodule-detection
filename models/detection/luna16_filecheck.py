@@ -24,10 +24,13 @@ def main(path_to_mhds):
 
     with open('mhd_checks.csv', 'w') as f: 
         for mhd_path in Path(path_to_mhds).iterdir():
-            if check_integrity(mhd_path):
-                f.write(f'{mhd_path},1')
-            else:
-                f.write(f'{mhd_path},0')
+            
+            if mhd_path.as_posix().endswith('.mhd'):
+                if check_integrity(mhd_path):
+                    f.write(f'{mhd_path},1')
+                else:
+                    f.write(f'{mhd_path},0')
+                f.write('\n')
 
 
 if __name__ == '__main__':
