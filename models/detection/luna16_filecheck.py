@@ -17,12 +17,12 @@ def check_integrity(idx: int, mhd_paths: List[Path]):
         # read in the scan
         metadata = sitk.ReadImage(mhd_path)
         _ = np.array(sitk.GetArrayFromImage(metadata), dtype=np.int16)
-        print(f'{mhd_path},1')
+        print(f'{mhd_path},1', flush=True)
         return True
 
     except Exception as err:
 
-        print(f'{mhd_path},0')
+        print(f'{mhd_path},0', flush=True)
         return False
 
 def main(mhd_root: Path, sub_processes: int):
