@@ -91,7 +91,7 @@ def parse_arguments():
     args = parser.parse_args()
     return args    
 
-def test_casenet(model,testset):
+def test_casenet(model,testset, device):
     data_loader = DataLoader(
         testset,
         batch_size = 1,
@@ -107,9 +107,13 @@ def test_casenet(model,testset):
 
         #coord = Variable(coord).cuda()
         #x = Variable(x).cuda()
+        coord = coord.to(device, non_blocking=True)
+        x = x.to(device, non_blocking=True)
+
         nodulePred,casePred,_ = model(x,coord)
         predlist.append(casePred.data.cpu().numpy())
         #print([i,data_loader.dataset.split[i,1],casePred.data.cpu().numpy()])
+
     predlist = np.concatenate(predlist)
     return predlist  
 
@@ -209,7 +213,7 @@ def main(datapath, prep_result_path, bbox_result_path, n_gpu, n_worker_preproces
         config2['datadir'] = prep_result_path
 
         dataset = DataBowl3Classifier(testsplit, config2, phase = 'test')
-        predlist = test_casenet(casenet,dataset).T
+        predlist = test_casenet(casenet,dataset, device).T
         df = pandas.DataFrame({'id':testsplit, 'cancer':predlist})
         df.to_csv(filename,index=False)
 

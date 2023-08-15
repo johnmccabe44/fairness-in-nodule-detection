@@ -21,7 +21,7 @@ def get_lr(epoch,args):
         lr = args.lr
     return lr
 
-def train_nodulenet(data_loader, net, loss, epoch, optimizer, args):
+def train_nodulenet(data_loader, net, loss, epoch, optimizer, device, args):
     start_time = time.time()
     net.train()
     if args.freeze_batchnorm:
@@ -38,9 +38,13 @@ def train_nodulenet(data_loader, net, loss, epoch, optimizer, args):
         if args.debug:
             if i >4:
                 break
-        data = Variable(data.cuda(async = True))
-        target = Variable(target.cuda(async = True))
-        coord = Variable(coord.cuda(async = True))
+        #data = Variable(data.cuda(async = True))
+        #target = Variable(target.cuda(async = True))
+        #coord = Variable(coord.cuda(async = True))
+
+        data = data.to(device, non_blocking=True)
+        target = target.to(device, non_blocking=True)
+        coord = coord.to(device, non_blocking=True)
 
         _,output = net(data, coord)
         loss_output = loss(output, target)
@@ -49,7 +53,7 @@ def train_nodulenet(data_loader, net, loss, epoch, optimizer, args):
         #torch.nn.utils.clip_grad_norm(net.parameters(), 1)
         optimizer.step()
 
-        loss_output[0] = loss_output[0].data[0]
+        loss_output[0] = loss_output[0].data
         metrics.append(loss_output)
 
     end_time = time.time()
@@ -71,21 +75,26 @@ def train_nodulenet(data_loader, net, loss, epoch, optimizer, args):
         np.mean(metrics[:, 5])))
     print
 
-def validate_nodulenet(data_loader, net, loss):
+def validate_nodulenet(data_loader, net, loss, device):
     start_time = time.time()
     
     net.eval()
 
     metrics = []
     for i, (data, target, coord) in enumerate(data_loader):
-        data = Variable(data.cuda(async = True), volatile = True)
-        target = Variable(target.cuda(async = True), volatile = True)
-        coord = Variable(coord.cuda(async = True), volatile = True)
+        
+        #data = Variable(data.cuda(async = True), volatile = True)
+        #target = Variable(target.cuda(async = True), volatile = True)
+        #coord = Variable(coord.cuda(async = True), volatile = True)
+
+        data = data.to(device, non_blocking=True)
+        target = target.to(device, non_blocking=True)
+        coord = coord.to(device, non_blocking=True)
 
         _,output = net(data, coord)
         loss_output = loss(output, target, train = False)
 
-        loss_output[0] = loss_output[0].data[0]
+        loss_output[0] = loss_output[0].data
         metrics.append(loss_output)    
     end_time = time.time()
 
@@ -106,7 +115,7 @@ def validate_nodulenet(data_loader, net, loss):
     print
     print
 
-def test_nodulenet(data_loader, net, get_pbb, save_dir, config, n_per_run):
+def test_nodulenet(data_loader, net, get_pbb, save_dir, config, n_per_run, device):
     start_time = time.time()
     save_dir = os.path.join(save_dir,'bbox')
     if not os.path.exists(save_dir):
@@ -134,8 +143,11 @@ def test_nodulenet(data_loader, net, get_pbb, save_dir, config, n_per_run):
         featurelist = []
 
         for i in range(len(splitlist)-1):
-            input = Variable(data[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
-            inputcoord = Variable(coord[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
+            #input = Variable(data[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
+            #inputcoord = Variable(coord[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
+            input = data[splitlist[i]:splitlist[i+1]].to(device, non_blocking=True)
+            inputcoord = coord[splitlist[i]:splitlist[i+1]].to(device, non_blocking=True)
+
             _,output = net(input,inputcoord)
             outputlist.append(output.data.cpu().numpy())
         output = np.concatenate(outputlist,0)

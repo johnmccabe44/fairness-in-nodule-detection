@@ -373,10 +373,10 @@ if __name__=='__main__':
     datapath=config['datapath'] 
     prep_result_path=config['preprocess_result_path']
     n_worker_preprocessing=config['n_worker_preprocessing']
-    scanlist_path=config['scanlist_path']
-    metadata_path=config['metadata_path']
     use_existing=config['use_existing']
 
+    scanlist_path=sys.argv[1]
+    metadata_path=sys.argv[2]
 
     full_prep_summit(data_path=datapath,
                      prep_folder=prep_result_path,

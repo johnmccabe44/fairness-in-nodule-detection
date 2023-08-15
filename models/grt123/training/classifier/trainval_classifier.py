@@ -20,7 +20,7 @@ def get_lr(epoch,args):
         lr = args.lr
     return lr
 
-def train_casenet(epoch,model,data_loader,optimizer,args):
+def train_casenet(epoch,model,data_loader,optimizer,device, args):
     model.train()
     if args.freeze_batchnorm:    
         for m in model.modules():
@@ -46,12 +46,21 @@ def train_casenet(epoch,model,data_loader,optimizer,args):
         if args.debug:
             if i >4:
                 break
-        coord = Variable(coord).cuda()
-        x = Variable(x).cuda()
+        
+        #coord = Variable(coord).cuda()
+        #x = Variable(x).cuda()
+        coord = coord.to(device, non_blocking=True)
+        x = x.to(device, non_blocking=True)
+
         xsize = x.size()
-        isnod = Variable(isnod).float().cuda()
+        #isnod = Variable(isnod).float().cuda()
+        isnod = isnod.to(device, non_blocking=True)
+
         ydata = y.numpy()[:,0]
-        y = Variable(y).float().cuda()
+
+        #y = Variable(y).float().cuda()
+        y = y.to(device, non_blocking=True)
+
 #         weight = 3*torch.ones(y.size()).float().cuda()
         optimizer.zero_grad()
         nodulePred,casePred,casePred_each = model(x,coord)
@@ -63,8 +72,8 @@ def train_casenet(epoch,model,data_loader,optimizer,args):
         #torch.nn.utils.clip_grad_norm(model.parameters(), 1)
 
         optimizer.step()
-        loss2Hist.append(loss2.data[0])
-        missHist.append(missLoss.data[0])
+        loss2Hist.append(loss2.data)
+        missHist.append(missLoss.data)
         lenHist.append(len(x))
         outdata = casePred.data.cpu().numpy()
 
@@ -87,7 +96,7 @@ def train_casenet(epoch,model,data_loader,optimizer,args):
     print('Train, epoch %d, loss2 %.4f, miss loss %.4f, acc %.4f, tpn %d, fpn %d, fnn %d, time %3.2f, lr % .5f '
           %(epoch,mean_loss2,mean_missloss,mean_acc,tpn,fpn, fnn, endtime-starttime,lr))
 
-def val_casenet(epoch,model,data_loader,args):
+def val_casenet(epoch,model,data_loader,device,args):
     model.eval()
     starttime = time.time()
     loss1Hist = []
@@ -102,12 +111,17 @@ def val_casenet(epoch,model,data_loader,args):
 
     for i,(x,coord,isnod,y) in enumerate(data_loader):
 
-        coord = Variable(coord,volatile=True).cuda()
-        x = Variable(x,volatile=True).cuda()
+        #coord = Variable(coord,volatile=True).cuda()
+        #x = Variable(x,volatile=True).cuda()
+        coord = coord.to(device, non_blocking=True)
+        x = x.to(device, non_blocking=True)
+
         xsize = x.size()
         ydata = y.numpy()[:,0]
-        y = Variable(y).float().cuda()
-        isnod = Variable(isnod).float().cuda()
+        #y = Variable(y).float().cuda()
+        #isnod = Variable(isnod).float().cuda()
+        y = y.to(device, non_blocking=True)
+        isnod = isnod.to(device, non_blocking=True)
 
         nodulePred,casePred,casePred_each = model(x,coord)
         
@@ -116,8 +130,8 @@ def val_casenet(epoch,model,data_loader,args):
         missLoss = -torch.sum(missMask*isnod*torch.log(casePred_each+0.001))/xsize[0]/xsize[1]
 
         #loss2 = binary_cross_entropy(sigmoid(casePred),y[:,0])
-        loss2Hist.append(loss2.data[0])
-        missHist.append(missLoss.data[0])
+        loss2Hist.append(loss2.data)
+        missHist.append(missLoss.data)
         lenHist.append(len(x))
         outdata = casePred.data.cpu().numpy()
         #print([i,data_loader.dataset.split[i,1],sigmoid(casePred).data.cpu().numpy()])
@@ -138,7 +152,7 @@ def val_casenet(epoch,model,data_loader,args):
           %(epoch,mean_loss2,mean_missloss,mean_acc,tpn,fpn, fnn, endtime-starttime))
 
     
-def test_casenet(model,testset):
+def test_casenet(model,testset, device):
     data_loader = DataLoader(
         testset,
         batch_size = 4,
@@ -152,8 +166,11 @@ def test_casenet(model,testset):
     #     weight = torch.from_numpy(np.ones_like(y).float().cuda()
     for i,(x,coord) in enumerate(data_loader):
 
-        coord = Variable(coord).cuda()
-        x = Variable(x).cuda()
+        #coord = Variable(coord).cuda()
+        #x = Variable(x).cuda()
+        coord = coord.to(device, non_blocking=True)
+        x = x.to(device, non_blocking=True)
+        
         nodulePred,casePred,_ = model(x,coord)
         predlist.append(casePred.data.cpu().numpy())
         #print([i,data_loader.dataset.split[i,1],casePred.data.cpu().numpy()])

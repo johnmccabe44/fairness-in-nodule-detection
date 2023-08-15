@@ -4,6 +4,7 @@ import time
 import numpy as np
 import data
 from importlib import import_module
+from pathlib import Path
 import shutil
 from utils import *
 import sys
@@ -52,13 +53,31 @@ parser.add_argument('--gpu', default='all', type=str, metavar='N',
 parser.add_argument('--n_test', default=8, type=int, metavar='N',
                     help='number of gpu for test')
 
+def load_scan_list(path_to_scan_list):
+    if path_to_scan_list.as_posix().endswith('.npy'):
+        return np.load(path_to_scan_list)
+    
+    if path_to_scan_list.as_posix().endswith('.csv'):
+        with open(path_to_scan_list, 'r') as f:
+            return [
+                scan_id 
+                for scan_id in f.read().split('\n')
+                if scan_id.startswith('summit')
+            ]
+
+    return []
+
 def main():
     global args
     args = parser.parse_args()
     
     
     torch.manual_seed(0)
-    torch.cuda.set_device(0)
+
+    use_cuda = torch.cuda.is_available()
+    device = torch.device("cuda" if use_cuda else "cpu")
+
+    #torch.cuda.set_device(0)
 
     model = import_module(args.model)
     config, net, loss, get_pbb = model.get_model()
@@ -85,31 +104,47 @@ def main():
     
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
+
     logfile = os.path.join(save_dir,'log')
     if args.test!=1:
         sys.stdout = Logger(logfile)
         pyfiles = [f for f in os.listdir('./') if f.endswith('.py')]
         for f in pyfiles:
             shutil.copy(f,os.path.join(save_dir,f))
-    n_gpu = setgpu(args.gpu)
-    args.n_gpu = n_gpu
-    net = net.cuda()
-    loss = loss.cuda()
-    cudnn.benchmark = True
-    net = DataParallel(net)
+
+    #n_gpu = setgpu(args.gpu)
+    #args.n_gpu = n_gpu
+    #net = net.cuda()
+    #loss = loss.cuda()
+    #cudnn.benchmark = True
+    #net = DataParallel(net)
+
+    net = net.to(device)
+    if use_cuda:
+        cudnn.benchmark = True
+        net = DataParallel(net)
+
+
     datadir = config_training['preprocess_result_path']
     
     if args.test == 1:
         margin = 32
         sidelen = 144
 
-        split_comber = SplitComb(sidelen,config['max_stride'],config['stride'],margin,config['pad_value'])
+        split_comber = SplitComb(sidelen,config['max_stride'],
+                                 config['stride'],
+                                 margin,
+                                 config['pad_value'])
+
+
+
         dataset = data.DataBowl3Detector(
             datadir,
-            'full.npy',
+            load_scan_list(Path(config_training['metadata_path'] , 'test_scans.csv')),
             config,
             phase='test',
             split_comber=split_comber)
+        
         test_loader = DataLoader(
             dataset,
             batch_size = 1,
@@ -118,14 +153,14 @@ def main():
             collate_fn = data.collate,
             pin_memory=False)
         
-        test(test_loader, net, get_pbb, save_dir,config)
+        test(test_loader, net, get_pbb, save_dir, config, device)
         return
 
     #net = DataParallel(net)
     
     dataset = data.DataBowl3Detector(
         datadir,
-        'kaggleluna_full.npy',
+        load_scan_list(Path(config_training['metadata_path'] , 'training_scans.csv')),
         config,
         phase = 'train')
     train_loader = DataLoader(
@@ -137,7 +172,7 @@ def main():
 
     dataset = data.DataBowl3Detector(
         datadir,
-        'valsplit.npy',
+        load_scan_list(Path(config_training['metadata_path'] , 'validation_scans.csv')),
         config,
         phase = 'val')
     val_loader = DataLoader(
@@ -162,12 +197,11 @@ def main():
             lr = 0.01 * args.lr
         return lr
     
-
     for epoch in range(start_epoch, args.epochs + 1):
-        train(train_loader, net, loss, epoch, optimizer, get_lr, args.save_freq, save_dir)
-        validate(val_loader, net, loss)
+        train(train_loader, net, loss, epoch, optimizer, get_lr, args.save_freq, save_dir, device)
+        validate(val_loader, net, loss, device)
 
-def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir):
+def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir, device):
     start_time = time.time()
     
     net.train()
@@ -177,9 +211,13 @@ def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir)
 
     metrics = []
     for i, (data, target, coord) in enumerate(data_loader):
-        data = Variable(data.cuda(async = True))
-        target = Variable(target.cuda(async = True))
-        coord = Variable(coord.cuda(async = True))
+        #data = Variable(data.cuda(async = True))
+        #target = Variable(target.cuda(async = True))
+        #coord = Variable(coord.cuda(async = True))
+
+        data = data.to(device, non_blocking=True)
+        target = target.to(device, non_blocking=True)
+        coord = coord.to(device, non_blocking=True)
 
         output = net(data, coord)
         loss_output = loss(output, target)
@@ -187,10 +225,10 @@ def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir)
         loss_output[0].backward()
         optimizer.step()
 
-        loss_output[0] = loss_output[0].data[0]
+        loss_output[0] = loss_output[0].data
         metrics.append(loss_output)
 
-    if epoch % args.save_freq == 0:            
+    if epoch % save_freq == 0:            
         state_dict = net.module.state_dict()
         for key in state_dict.keys():
             state_dict[key] = state_dict[key].cpu()
@@ -221,22 +259,28 @@ def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir)
         np.mean(metrics[:, 5])))
     print
 
-def validate(data_loader, net, loss):
+def validate(data_loader, net, loss, device):
     start_time = time.time()
     
     net.eval()
 
     metrics = []
     for i, (data, target, coord) in enumerate(data_loader):
-        data = Variable(data.cuda(async = True), volatile = True)
-        target = Variable(target.cuda(async = True), volatile = True)
-        coord = Variable(coord.cuda(async = True), volatile = True)
+        #data = Variable(data.cuda(async = True), volatile = True)
+        #target = Variable(target.cuda(async = True), volatile = True)
+        #coord = Variable(coord.cuda(async = True), volatile = True)
+
+
+        data = data.to(device, non_blocking=True)
+        target = target.to(device, non_blocking=True)
+        coord = coord.to(device, non_blocking=True)
 
         output = net(data, coord)
         loss_output = loss(output, target, train = False)
 
-        loss_output[0] = loss_output[0].data[0]
+        loss_output[0] = loss_output[0].data
         metrics.append(loss_output)    
+
     end_time = time.time()
 
     metrics = np.asarray(metrics, np.float32)
@@ -256,7 +300,7 @@ def validate(data_loader, net, loss):
     print
     print
 
-def test(data_loader, net, get_pbb, save_dir, config):
+def test(data_loader, net, get_pbb, save_dir, config, device):
     start_time = time.time()
     save_dir = os.path.join(save_dir,'bbox')
     if not os.path.exists(save_dir):
@@ -286,8 +330,12 @@ def test(data_loader, net, get_pbb, save_dir, config):
         featurelist = []
 
         for i in range(len(splitlist)-1):
-            input = Variable(data[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
-            inputcoord = Variable(coord[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
+            #input = Variable(data[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
+            #inputcoord = Variable(coord[splitlist[i]:splitlist[i+1]], volatile = True).cuda()
+
+            input = data[splitlist[i]:splitlist[i+1]].to(device, non_blocking=True)
+            inputcoord = coord[splitlist[i]:splitlist[i+1]].to(device, non_blocking=True)
+
             if isfeat:
                 output,feature = net(input,inputcoord)
                 featurelist.append(feature.data.cpu().numpy())
@@ -297,6 +345,7 @@ def test(data_loader, net, get_pbb, save_dir, config):
         output = np.concatenate(outputlist,0)
         output = split_comber.combine(output,nzhw=nzhw)
         if isfeat:
+            sidelen=144
             feature = np.concatenate(featurelist,0).transpose([0,2,3,4,1])[:,:,:,:,:,np.newaxis]
             feature = split_comber.combine(feature,sidelen)[...,0]
 
@@ -305,25 +354,30 @@ def test(data_loader, net, get_pbb, save_dir, config):
         if isfeat:
             feature_selected = feature[mask[0],mask[1],mask[2]]
             np.save(os.path.join(save_dir, name+'_feature.npy'), feature_selected)
+
         #tp,fp,fn,_ = acc(pbb,lbb,0,0.1,0.1)
         #print([len(tp),len(fp),len(fn)])
+
         print([i_name,name])
         e = time.time()
         np.save(os.path.join(save_dir, name+'_pbb.npy'), pbb)
         np.save(os.path.join(save_dir, name+'_lbb.npy'), lbb)
+
     np.save(os.path.join(save_dir, 'namelist.npy'), namelist)
     end_time = time.time()
-
 
     print('elapsed time is %3.2f seconds' % (end_time - start_time))
     print
     print
 
-def singletest(data,net,config,splitfun,combinefun,n_per_run,margin = 64,isfeat=False):
+def singletest(data, net, config, splitfun, combinefun, n_per_run, device, margin = 64, isfeat=False):
     z, h, w = data.size(2), data.size(3), data.size(4)
     print(data.size())
+
     data = splitfun(data,config['max_stride'],margin)
-    data = Variable(data.cuda(async = True), volatile = True,requires_grad=False)
+    #data = Variable(data.cuda(async = True), volatile = True,requires_grad=False)
+    data = data.to(device, non_blocking=True)
+
     splitlist = range(0,args.split+1,n_per_run)
     outputlist = []
     featurelist = []

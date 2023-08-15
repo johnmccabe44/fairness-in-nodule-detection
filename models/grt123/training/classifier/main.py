@@ -3,6 +3,7 @@ import os
 import time
 import numpy as np
 from importlib import import_module
+import pandas
 import shutil
 import sys
 from split_combine import SplitComb
@@ -140,21 +141,29 @@ def main():
         for f in pyfiles:
             shutil.copy(f,os.path.join(save_dir,f))
     ################################
-    torch.cuda.set_device(0)
+    #torch.cuda.set_device(0)
     #nod_net = nod_net.cuda()
-    case_net = case_net.cuda()
-    loss = loss.cuda()
-    cudnn.benchmark = True
-    if not args.debug:
-        case_net = DataParallel(case_net)
-        nod_net = DataParallel(nod_net)
+    #case_net = case_net.cuda()
+    #loss = loss.cuda()
+    #cudnn.benchmark = True
+    #if not args.debug:
+    #    case_net = DataParallel(case_net)
+    #    nod_net = DataParallel(nod_net)
     ################################
 
+    use_cuda = torch.cuda.is_available()
+    device = torch.device("cuda" if use_cuda else "cpu")
+    nod_net = nod_net.to(device)
+    case_net = case_net.to(device)
+    if use_cuda:
+        cudnn.benchmark = True
+        nod_net = DataParallel(nod_net)
+        case_net = DataParallel(case_net)
 
     if args.test1 == 1:
         testsplit = np.load('full.npy')
         dataset = DataBowl3Classifier(testsplit, config2, phase = 'test')
-        predlist = test_casenet(case_net,dataset).T
+        predlist = test_casenet(case_net,dataset, device).T
         anstable = np.concatenate([[testsplit],predlist],0).T
         df = pandas.DataFrame(anstable)
         df.columns={'id','cancer'}
@@ -165,7 +174,7 @@ def main():
 
         testsplit = np.load('test.npy')
         dataset = DataBowl3Classifier(testsplit, config2, phase = 'test')
-        predlist = test_casenet(case_net,dataset).T
+        predlist = test_casenet(case_net,dataset, device).T
         anstable = np.concatenate([[testsplit],predlist],0).T
         df = pandas.DataFrame(anstable)
         df.columns={'id','cancer'}
@@ -174,7 +183,7 @@ def main():
     if args.test3 == 1:
         testsplit3 = np.load('stage2.npy')
         dataset = DataBowl3Classifier(testsplit3,config2,phase = 'test')
-        predlist = test_casenet(case_net,dataset).T
+        predlist = test_casenet(case_net,dataset, device).T
         anstable = np.concatenate([[testsplit3],predlist],0).T
         df = pandas.DataFrame(anstable)
         df.columns={'id','cancer'}
@@ -219,16 +228,16 @@ def main():
             debug = args.debug
             args.lr = 0.0
             args.debug = True
-            train_casenet(epoch,case_net,train_loader_case,optimizer2,args)
+            train_casenet(epoch,case_net,train_loader_case,optimizer2,device, args)
             args.lr = lr
             args.debug = debug
         if epoch<args.lr_stage[-1]:
-            train_nodulenet(train_loader_nod, nod_net, loss, epoch, optimizer, args)
-            validate_nodulenet(val_loader_nod, nod_net, loss)
+            train_nodulenet(train_loader_nod, nod_net, loss, epoch, optimizer, device, args)
+            validate_nodulenet(val_loader_nod, nod_net, loss, device)
         if epoch>config2['startepoch']:
-            train_casenet(epoch,case_net,train_loader_case,optimizer2,args)
-            val_casenet(epoch,case_net,val_loader_case,args)
-            val_casenet(epoch,case_net,all_loader_case,args)
+            train_casenet(epoch,case_net,train_loader_case,optimizer2,device,args)
+            val_casenet(epoch,case_net,val_loader_case, device, args)
+            val_casenet(epoch,case_net,all_loader_case, device, args)
 
         if epoch % args.save_freq == 0:            
             state_dict = case_net.module.state_dict()

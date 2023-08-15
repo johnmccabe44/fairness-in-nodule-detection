@@ -14,13 +14,14 @@ config = {
       'luna_abbr':'./detector/labels/shorter.csv',
       'luna_label':'./detector/labels/lunaqualified.csv',
       
-      'datapath' : '../../../scans/mhd',
-      'scanlist_path':'../../../output/metadata/training_scans.csv',
-      'metadata_path' : '../../../output/metadata/training_metadata.csv',
+      'datapath' : '/Users/john/Projects/SOTAEvaluationNoduleDetection/scans/lung50',
+      'metadata_path' : '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/metadata',
 
-      'preprocess_result_path':'../prep_result/trn',       
-      'bbox_path':'../bbox_result/trn',
+      'preprocess_result_path':'/Users/john/Projects/SOTAEvaluationNoduleDetection/models/grt123/prep_result',       
+      'bbox_path':'/Users/john/Projects/SOTAEvaluationNoduleDetection/models/grt123/bbox_result',
+
+      'use_existing' : True,
       
-      'n_worker_preprocessing' : 1,
+      'n_worker_preprocessing' : 4,
       'preprocessing_backend':'python'
       }
