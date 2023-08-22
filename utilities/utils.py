@@ -7,7 +7,12 @@ import pandas as pd
 from collections import namedtuple
 import numpy as np
 import matplotlib.patches as patches
+from pathlib import Path
 from typing import List
+import netrc
+from zipfile import ZipFile
+import xnat
+import sys
 
 IrcTuple = namedtuple('IrcTuple',['index','row','col'])
 
@@ -151,3 +156,69 @@ def display_processed_nodules(stem):
                                                diameter=d))
 
     display_images(nodule_type_images)
+
+def save_to_disk(downloaded_file, output_path, scan_id, metaio):
+    # unzip to temp directory
+    with ZipFile(downloaded_file) as zip_file:
+        zip_file.extractall(output_path)
+
+        if metaio:
+            # pull out the folder where the dcms live
+            dcm_dir = os.path.dirname([dcm_file for dcm_file in Path(output_path).rglob('*.dcm')][0])
+
+            # read in the dicom series
+            reader = sitk.ImageSeriesReader()
+            file_names = reader.GetGDCMSeriesFileNames(dcm_dir)
+            reader.SetFileNames(file_names)
+            sitk_image = reader.Execute()
+
+            # write to MetaIO with compression
+            writer = sitk.ImageFileWriter()
+            writer.SetImageIO('MetaImageIO')
+            writer.SetFileName(os.path.join(output_path, scan_id))
+            writer.UseCompressionOn()
+            writer.Execute(sitk_image)
+
+        os.remove(downloaded_file)
+
+def download_from_xnat(scan_path, study_id, scan_id, metaio, overwrite=False):
+    """
+    downloads a scan from XNAT; VPN must be running in order to download.
+
+    creds are stored in netrc
+
+    output is a zip file, to be useful must be either unzipped and/or converted
+    to a different format
+
+    """
+    creds = netrc.netrc()
+    remote_machine = 'https://covid19-xnat.cs.ucl.ac.uk'
+    auth_tokens = creds.authenticators(remote_machine)
+    
+    download_path = scan_path / study_id
+    download_path.mkdir(exist_ok=True, parents=True)
+    download_file = Path(download_path, scan_id+'.zip')
+    metaio_file = Path(download_path, scan_id+'.mhd')
+
+    if not Path.exists(metaio_file) or overwrite:
+        with xnat.connect(remote_machine, user=auth_tokens[0], password=auth_tokens[2]) as xnat_session:
+            xnat_project = xnat_session.projects['summit_lung50']
+            xnat_project.experiments[scan_id].download(download_file)
+            save_to_disk(download_file, download_path, scan_id, metaio)
+
+
+
+if __name__ == '__main__':
+
+    action = sys.argv[1]
+
+    if action == 'download_from_xnat':
+
+        scan_path = Path(sys.argv[2])
+        scan_id = sys.argv[3]
+        study_id = scan_id.split('_',1)[0]
+
+        download_from_xnat(scan_path=scan_path,
+                           study_id=study_id,
+                           scan_id=scan_id,
+                           metaio=True)

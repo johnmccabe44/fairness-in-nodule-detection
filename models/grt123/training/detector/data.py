@@ -12,6 +12,16 @@ from scipy.ndimage.interpolation import rotate
 
 class DataBowl3Detector(Dataset):
     def __init__(self, data_dir, scan_list, config, phase = 'train',split_comber=None):
+
+        def filterbysize(scan_id, lbl, size=5):
+            filtered_lbl = lbl[lbl[:,3]>4.99]
+
+            if filtered_lbl.shape[0] == 0:
+                print(f'Warning: No nodules > 5 for {idx}')
+                return [[0,0,0,0]]
+            else:
+                return filtered_lbl
+            
         assert(phase == 'train' or phase == 'val' or phase == 'test')
         self.phase = phase
         self.max_stride = config['max_stride']       
@@ -43,15 +53,16 @@ class DataBowl3Detector(Dataset):
         #self.kagglenames = [f for f in self.filenames if len(f.split('/')[-1].split('_')[0])>20]
         #self.lunanames = [f for f in self.filenames if len(f.split('/')[-1].split('_')[0])<20]
         self.summitnames = self.filenames
-
         labels = []
         
         for idx in idcs:
 
             l = np.load(os.path.join(data_dir, '%s_label.npy' %idx))
-            if np.all(l==0):
-                l=np.array([])
-            labels.append(l)
+            fl = filterbysize(idx, l)
+                      
+            if np.all(fl==0):
+                fl=np.array([])
+            labels.append(fl)
 
         self.sample_bboxes = labels
         if self.phase != 'test':
@@ -284,6 +295,11 @@ class LabelMapping(object):
         
         output_size = []
         for i in range(3):
+
+            if input_size[i] % stride != 0:
+                print('error', input_size[i], stride)
+                print(bboxes)
+
             assert(input_size[i] % stride == 0)
             output_size.append(int(input_size[i] / stride))
         
