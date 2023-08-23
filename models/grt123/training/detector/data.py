@@ -301,7 +301,7 @@ class LabelMapping(object):
         for i in range(3):
 
             if input_size[i] % stride != 0:
-                print(f'Error: Input size: {input_size[i]}, Stride:{stride}, Filename: {filename}')
+                print(f'Error: Input size: {input_size[i]}, Stride:{stride}, Filename: {filename}', flush=True)
                 print(bboxes)
 
             assert(input_size[i] % stride == 0)
