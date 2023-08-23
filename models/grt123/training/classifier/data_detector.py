@@ -176,7 +176,7 @@ class Crop(object):
         self.crop_size = config['crop_size']
         self.bound_size = config['bound_size']
         self.stride = config['stride']
-	self.pad_value = config['pad_value']
+        self.pad_value = config['pad_value']
 
     def __call__(self, imgs, target, bboxes,isScale=False,isRand=False):
         if isScale:

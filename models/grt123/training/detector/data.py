@@ -14,10 +14,10 @@ class DataBowl3Detector(Dataset):
     def __init__(self, data_dir, scan_list, config, phase = 'train',split_comber=None):
 
         def filterbysize(scan_id, lbl, size=5):
-            filtered_lbl = lbl[lbl[:,3]>4.99]
+            filtered_lbl = lbl[lbl[:,3]>=size]
 
             if filtered_lbl.shape[0] == 0:
-                print(f'Warning: No nodules > 5 for {idx}')
+                print(f'Warning: No nodules > 5 for {idx}', flush=True)
                 return [[0,0,0,0]]
             else:
                 return filtered_lbl
@@ -57,7 +57,12 @@ class DataBowl3Detector(Dataset):
         
         for idx in idcs:
 
-            l = np.load(os.path.join(data_dir, '%s_label.npy' %idx))
+            try:
+                l = np.load(os.path.join(data_dir, '%s_label.npy' %idx))
+            except:
+                print(f'Error loading file:{idx}', flush=True)
+                l = np.array([[0,0,0,0]])
+
             fl = filterbysize(idx, l)
                       
             if np.all(fl==0):
@@ -70,7 +75,7 @@ class DataBowl3Detector(Dataset):
             for i, l in enumerate(labels):
                 if len(l) > 0 :
                     for t in l:
-                        if t[3]>sizelim:
+                        if t[3]>=sizelim:
                             self.bboxes.append([np.concatenate([[i],t])])
                         if t[3]>sizelim2:
                             self.bboxes+=[[np.concatenate([[i],t])]]*2
