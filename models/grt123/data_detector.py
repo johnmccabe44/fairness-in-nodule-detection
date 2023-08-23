@@ -105,7 +105,7 @@ class DataBowl3Detector(Dataset):
                 bboxes = self.sample_bboxes[randimid]
                 isScale = self.augtype['scale'] and (self.phase=='train')
                 sample, target, bboxes, coord = self.crop(imgs, [], bboxes,isScale=False,isRand=True)
-            label = self.label_mapping(sample.shape[1:], target, bboxes)
+            label = self.label_mapping(sample.shape[1:], target, bboxes, filename)
             sample = sample.astype(np.float32)
             #if filename in self.kagglenames:
                 #label[label==-1]=0
@@ -273,7 +273,7 @@ class LabelMapping(object):
             self.th_pos = config['th_pos_val']
 
             
-    def __call__(self, input_size, target, bboxes):
+    def __call__(self, input_size, target, bboxes, filename):
         stride = self.stride
         num_neg = self.num_neg
         th_neg = self.th_neg

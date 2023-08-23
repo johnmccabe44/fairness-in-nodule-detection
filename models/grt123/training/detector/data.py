@@ -18,7 +18,7 @@ class DataBowl3Detector(Dataset):
 
             if filtered_lbl.shape[0] == 0:
                 print(f'Warning: No nodules > 5 for {idx}', flush=True)
-                return [[0,0,0,0]]
+                return np.array([[0,0,0,0]])
             else:
                 return filtered_lbl
             
@@ -120,7 +120,7 @@ class DataBowl3Detector(Dataset):
                 bboxes = self.sample_bboxes[randimid]
                 isScale = self.augtype['scale'] and (self.phase=='train')
                 sample, target, bboxes, coord = self.crop(imgs, [], bboxes,isScale=False,isRand=True)
-            label = self.label_mapping(sample.shape[1:], target, bboxes)
+            label = self.label_mapping(sample.shape[1:], target, bboxes, filename)
             sample = (sample.astype(np.float32)-128)/128
             #if filename in self.kagglenames and self.phase=='train':
             #    label[label==-1]=0
@@ -291,7 +291,7 @@ class LabelMapping(object):
             self.th_pos = config['th_pos_val']
 
             
-    def __call__(self, input_size, target, bboxes):
+    def __call__(self, input_size, target, bboxes, filename):
         stride = self.stride
         num_neg = self.num_neg
         th_neg = self.th_neg
@@ -302,7 +302,7 @@ class LabelMapping(object):
         for i in range(3):
 
             if input_size[i] % stride != 0:
-                print('error', input_size[i], stride)
+                print(f'Error: Input size: {input_size[i]}, Stride:{stride}, Filename: {filename}')
                 print(bboxes)
 
             assert(input_size[i] % stride == 0)
