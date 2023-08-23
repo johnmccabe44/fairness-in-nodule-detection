@@ -17,7 +17,6 @@ class DataBowl3Detector(Dataset):
             filtered_lbl = lbl[lbl[:,3]>=size]
 
             if filtered_lbl.shape[0] == 0:
-                print(f'Warning: No nodules > 5 for {idx}', flush=True)
                 return np.array([[0,0,0,0]])
             else:
                 return filtered_lbl
