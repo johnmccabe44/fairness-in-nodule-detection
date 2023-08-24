@@ -215,6 +215,8 @@ def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir,
         #target = Variable(target.cuda(async = True))
         #coord = Variable(coord.cuda(async = True))
 
+        print(f'Batch ... {i}',flush=True)
+
         data = data.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
         coord = coord.to(device, non_blocking=True)
@@ -270,6 +272,7 @@ def validate(data_loader, net, loss, device):
         #target = Variable(target.cuda(async = True), volatile = True)
         #coord = Variable(coord.cuda(async = True), volatile = True)
 
+        print(f'Validate batch ... {i}', flush=True)
 
         data = data.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
