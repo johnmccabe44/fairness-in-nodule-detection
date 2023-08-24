@@ -55,6 +55,24 @@ parser.add_argument('--gpu', default='all', type=str, metavar='N',
 parser.add_argument('--n_test', default=8, type=int, metavar='N',
                     help='number of gpu for test')
 
+def print_gpu_stats(device, msg):
+
+    if device.type == 'cuda':
+        print(msg)
+        nvmlInit()
+        h = nvmlDeviceGetHandleByIndex(0)
+        info = nvmlDeviceGetMemoryInfo(h)
+        print(f'total    : {info.total}', flush=True)
+
+        print(f'Before clearing cache')        
+        print(f'free     : {info.free}', flush=True)
+        print(f'used     : {info.used}', flush=True)    
+        torch.cuda.empty_cache()
+        info = nvmlDeviceGetMemoryInfo(h)
+        print(f'After clearing cache')
+        print(f'free     : {info.free}', flush=True)
+        print(f'used     : {info.used}', flush=True)    
+
 def load_scan_list(path_to_scan_list):
     if path_to_scan_list.as_posix().endswith('.npy'):
         return np.load(path_to_scan_list)
@@ -81,11 +99,15 @@ def main():
 
     #torch.cuda.set_device(0)
 
+    print_gpu_stats(device, 'Main')
+
     model = import_module(args.model)
     config, net, loss, get_pbb = model.get_model()
     start_epoch = args.start_epoch
     save_dir = args.save_dir
     
+    print_gpu_stats(device, 'After importing model')
+
     if args.resume:
         checkpoint = torch.load(args.resume)
         if start_epoch == 0:
@@ -146,7 +168,7 @@ def main():
             config,
             phase='test',
             split_comber=split_comber)
-        
+                
         test_loader = DataLoader(
             dataset,
             batch_size = 1,
@@ -155,6 +177,7 @@ def main():
             collate_fn = data.collate,
             pin_memory=False)
         
+        print_gpu_stats(device, 'After getting tst ds')
         test(test_loader, net, get_pbb, save_dir, config, device)
         return
 
@@ -171,7 +194,7 @@ def main():
         shuffle = True,
         num_workers = args.workers,
         pin_memory=True)
-
+    print_gpu_stats(device, 'After getting trn ds')
     dataset = data.DataBowl3Detector(
         datadir,
         load_scan_list(Path(config_training['metadata_path'] , 'validation_scans.csv')),
@@ -183,7 +206,7 @@ def main():
         shuffle = False,
         num_workers = args.workers,
         pin_memory=True)
-
+    print_gpu_stats(device, 'After getting val ds')
     optimizer = torch.optim.SGD(
         net.parameters(),
         args.lr,
@@ -200,38 +223,19 @@ def main():
         return lr
     
     for epoch in range(start_epoch, args.epochs + 1):
+        print_gpu_stats(device, f'Epoch {epoch}')        
         train(train_loader, net, loss, epoch, optimizer, get_lr, args.save_freq, save_dir, device)
         validate(val_loader, net, loss, device)
-
-def print_gpu_stats(device):
-
-    if device.type == 'cuda':
-        nvmlInit()
-        h = nvmlDeviceGetHandleByIndex(0)
-        info = nvmlDeviceGetMemoryInfo(h)
-        print(f'total    : {info.total}', flush=True)
-
-        print(f'Before clearing cache')        
-        print(f'free     : {info.free}', flush=True)
-        print(f'used     : {info.used}', flush=True)    
-        torch.cuda.empty_cache()
-        info = nvmlDeviceGetMemoryInfo(h)
-        print(f'After clearing cache')
-        print(f'free     : {info.free}', flush=True)
-        print(f'used     : {info.used}', flush=True)    
 
 
 def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir, device):
     start_time = time.time()
     
-    print_gpu_stats(device)
-
     net.train()
     lr = get_lr(epoch)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
-    
     metrics = []
     for i, (data, target, coord) in enumerate(data_loader):
         #data = Variable(data.cuda(async = True))
