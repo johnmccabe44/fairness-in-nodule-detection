@@ -244,9 +244,9 @@ def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir,
         target = target.to(device, non_blocking=True)
         coord = coord.to(device, non_blocking=True)
 
-        print(f'Data size:{data.element_size() * data.nelement()}',)
-        print(f'Target size:{target.element_size() * target.nelement()}',)
-        print(f'Coord: size:{coord.element_size() * coord.nelement()}',)
+        print(f'Data size:{data.element_size() * data.nelement()}',flush=True)
+        print(f'Target size:{target.element_size() * target.nelement()}',flush=True)
+        print(f'Coord: size:{coord.element_size() * coord.nelement()}',flush=True)
 
         output = net(data, coord)
         loss_output = loss(output, target)
