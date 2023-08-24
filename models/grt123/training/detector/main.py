@@ -21,6 +21,8 @@ from config_training import config as config_training
 
 from layers import acc
 
+from pynvml import nvmlInit, nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo
+
 parser = argparse.ArgumentParser(description='PyTorch DataBowl3 Detector')
 parser.add_argument('--model', '-m', metavar='MODEL', default='base',
                     help='model')
@@ -201,14 +203,35 @@ def main():
         train(train_loader, net, loss, epoch, optimizer, get_lr, args.save_freq, save_dir, device)
         validate(val_loader, net, loss, device)
 
+def print_gpu_stats(device):
+
+    if device.type == 'cuda':
+        nvmlInit()
+        h = nvmlDeviceGetHandleByIndex(0)
+        info = nvmlDeviceGetMemoryInfo(h)
+        print(f'total    : {info.total}', flush=True)
+
+        print(f'Before clearing cache')        
+        print(f'free     : {info.free}', flush=True)
+        print(f'used     : {info.used}', flush=True)    
+        torch.cuda.empty_cache()
+        info = nvmlDeviceGetMemoryInfo(h)
+        print(f'After clearing cache')
+        print(f'free     : {info.free}', flush=True)
+        print(f'used     : {info.used}', flush=True)    
+
+
 def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir, device):
     start_time = time.time()
     
+    print_gpu_stats(device)
+
     net.train()
     lr = get_lr(epoch)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
+    
     metrics = []
     for i, (data, target, coord) in enumerate(data_loader):
         #data = Variable(data.cuda(async = True))
@@ -220,6 +243,10 @@ def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir,
         data = data.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
         coord = coord.to(device, non_blocking=True)
+
+        print(f'Data size:{data.element_size() * data.nelement()}',)
+        print(f'Target size:{target.element_size() * target.nelement()}',)
+        print(f'Coord: size:{coord.element_size() * coord.nelement()}',)
 
         output = net(data, coord)
         loss_output = loss(output, target)
