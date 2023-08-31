@@ -302,12 +302,7 @@ class LabelMapping(object):
         
         output_size = []
         for i in range(3):
-
-            if input_size[i] % stride != 0:
-                print(f'Error: Input size: {input_size[i]}, Stride:{stride}, Filename: {filename}', flush=True)
-                print(bboxes)
-
-            assert(input_size[i] % stride == 0)
+            assert input_size[i] % stride == 0, f'Error: index: {i}, input_size: {input_size[i]} is not divisiable by stride:{stride}, file:{filename}'
             output_size.append(int(input_size[i] / stride))
         
         label = -1 * np.ones(output_size + [len(anchors), 5], np.float32)
