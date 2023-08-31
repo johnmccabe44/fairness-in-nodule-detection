@@ -55,9 +55,9 @@ parser.add_argument('--gpu', default='all', type=str, metavar='N',
 parser.add_argument('--n_test', default=8, type=int, metavar='N',
                     help='number of gpu for test')
 
-def print_gpu_stats(device, msg):
+def print_gpu_stats(device, msg, debug=False):
 
-    if device.type == 'cuda':
+    if device.type == 'cuda' and debug==True:
         print(msg)
         nvmlInit()
         h = nvmlDeviceGetHandleByIndex(0)
@@ -247,10 +247,6 @@ def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir,
         data = data.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
         coord = coord.to(device, non_blocking=True)
-
-        print(f'Data size:{data.element_size() * data.nelement()}',flush=True)
-        print(f'Target size:{target.element_size() * target.nelement()}',flush=True)
-        print(f'Coord: size:{coord.element_size() * coord.nelement()}',flush=True)
 
         output = net(data, coord)
         loss_output = loss(output, target)
