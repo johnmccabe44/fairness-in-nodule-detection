@@ -268,10 +268,7 @@ def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir,
             os.path.join(save_dir, '%03d.ckpt' % epoch))
 
     end_time = time.time()
-    if device.type == 'cuda':
-        metrics = np.asarray(metrics.cpu(), np.float32)
-    else:
-        metrics = np.asarray(metrics, np.float32)
+    metrics = np.asarray(metrics, np.float32)
 
     print('Epoch %03d (lr %.5f)' % (epoch, lr))
     print('Train:      tpr %3.2f, tnr %3.2f, total pos %d, total neg %d, time %3.2f' % (
