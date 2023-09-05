@@ -1,0 +1,5 @@
+{
+    "orig_data_base_dir": "/Users/john/Projects/SOTAEvaluationNoduleDetection/scans/lung50",
+    "data_base_dir": "/Users/john/Projects/SOTAEvaluationNoduleDetection/scans/nifti",
+    "data_list_file_path": "SUMMIT_datasplit/mhd_original/dataset_fold0.json"
+}
