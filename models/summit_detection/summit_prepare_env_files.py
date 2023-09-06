@@ -16,9 +16,17 @@ import sys
 
 
 def main():
+    location = sys.argv[1]
+
     #  ------------- Modification starts -------------
-    raw_data_base_dir = "/Users/john/Projects/SOTAEvaluationNoduleDetection/scans/lung50"  # the directory of the raw images
-    resampled_data_base_dir = "/Users/john/Projects/SOTAEvaluationNoduleDetection/scans/nifti"  # the directory of the resampled images
+    if location == 'cluster':
+        raw_data_base_dir = "/cluster/project2/SummitLung50"  # the directory of the raw images
+        resampled_data_base_dir = "/cluster/project2/SUMMIT/cache/summit_detection"  # the directory of the resampled images
+
+    if location == 'mac':
+        raw_data_base_dir = "/Users/john/Projects/SOTAEvaluationNoduleDetection/scans/lung50"  # the directory of the raw images
+        resampled_data_base_dir = "/Users/john/Projects/SOTAEvaluationNoduleDetection/scans/nifti"  # the directory of the resampled images
+
     downloaded_datasplit_dir = "SUMMIT_datasplit"  # the directory of downloaded data split files
 
     out_trained_models_dir = "trained_models"  # the directory to save trained model weights
