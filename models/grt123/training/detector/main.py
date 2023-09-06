@@ -224,8 +224,11 @@ def main():
     
     for epoch in range(start_epoch, args.epochs + 1):
         print_gpu_stats(device, f'Epoch {epoch}')        
+        print(f'Training epoch {epoch}', flush=True)
         train(train_loader, net, loss, epoch, optimizer, get_lr, args.save_freq, save_dir, device)
-        validate(val_loader, net, loss, device)
+
+        if epoch % 10 == 0:
+            validate(val_loader, net, loss, device)
 
 
 def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir, device):
@@ -270,20 +273,20 @@ def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir,
     end_time = time.time()
     metrics = np.asarray(metrics, dtype=np.float32)
 
-    print('Epoch %03d (lr %.5f)' % (epoch, lr))
+    print('Epoch %03d (lr %.5f)' % (epoch, lr), flush=True)
     print('Train:      tpr %3.2f, tnr %3.2f, total pos %d, total neg %d, time %3.2f' % (
         100.0 * np.sum(metrics[:, 6]) / np.sum(metrics[:, 7]),
         100.0 * np.sum(metrics[:, 8]) / np.sum(metrics[:, 9]),
         np.sum(metrics[:, 7]),
         np.sum(metrics[:, 9]),
-        end_time - start_time))
+        end_time - start_time), flush=True)
     print('loss %2.4f, classify loss %2.4f, regress loss %2.4f, %2.4f, %2.4f, %2.4f' % (
         np.mean(metrics[:, 0]),
         np.mean(metrics[:, 1]),
         np.mean(metrics[:, 2]),
         np.mean(metrics[:, 3]),
         np.mean(metrics[:, 4]),
-        np.mean(metrics[:, 5])))
+        np.mean(metrics[:, 5])), flush=True)
     print
 
 def validate(data_loader, net, loss, device):
@@ -317,23 +320,21 @@ def validate(data_loader, net, loss, device):
         100.0 * np.sum(metrics[:, 8]) / np.sum(metrics[:, 9]),
         np.sum(metrics[:, 7]),
         np.sum(metrics[:, 9]),
-        end_time - start_time))
+        end_time - start_time), flush=True)
     print('loss %2.4f, classify loss %2.4f, regress loss %2.4f, %2.4f, %2.4f, %2.4f' % (
         np.mean(metrics[:, 0]),
         np.mean(metrics[:, 1]),
         np.mean(metrics[:, 2]),
         np.mean(metrics[:, 3]),
         np.mean(metrics[:, 4]),
-        np.mean(metrics[:, 5])))
-    print
-    print
+        np.mean(metrics[:, 5])), flush=True)
 
 def test(data_loader, net, get_pbb, save_dir, config, device):
     start_time = time.time()
     save_dir = os.path.join(save_dir,'bbox')
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    print(save_dir)
+
     net.eval()
     namelist = []
     split_comber = data_loader.dataset.split_comber
@@ -350,7 +351,7 @@ def test(data_loader, net, get_pbb, save_dir, config, device):
             if config['output_feature']:
                 isfeat = True
         n_per_run = args.n_test
-        print(data.size())
+
         splitlist = range(0,len(data)+1,n_per_run)
         if splitlist[-1]!=len(data):
             splitlist.append(len(data))
@@ -426,6 +427,7 @@ def singletest(data, net, config, splitfun, combinefun, n_per_run, device, margi
         return output,feature
     else:
         return output
+
 if __name__ == '__main__':
     main()
 
