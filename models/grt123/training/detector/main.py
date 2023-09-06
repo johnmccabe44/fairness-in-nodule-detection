@@ -44,6 +44,8 @@ parser.add_argument('--save-freq', default='10', type=int, metavar='S',
                     help='save frequency')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
+parser.add_argument('--data-dir', default='', type=str, metavar='SAVE',
+                    help='directory to save checkpoint (default: none)')
 parser.add_argument('--save-dir', default='', type=str, metavar='SAVE',
                     help='directory to save checkpoint (default: none)')
 parser.add_argument('--test', default=0, type=int, metavar='TEST',
@@ -149,7 +151,7 @@ def main():
         net = DataParallel(net)
 
 
-    datadir = config_training['preprocess_result_path']
+    datadir = Path(args.data_dir, config_training['preprocess_result_path'])
     
     if args.test == 1:
         margin = 32
