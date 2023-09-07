@@ -43,7 +43,7 @@ def display_images(nodule_type_images : List[DisplayTuple]):
         ax.set_title(display_tuple.nodule_type + '-' + display_tuple.scan_id + '-' + str(irc) + '-' + str(xyz))
         plt.show()
 
-def xyz2irc(coord_xyz, origin, voxel_size, orientation):
+def xyz2irc(coord_xyz, origin, voxel_size, orientation=np.array([[1,0,0],[0,1,0],[0,0,1]])):
 
     origin_a = np.array(origin)
     voxel_size_a = np.array(voxel_size)
@@ -206,6 +206,47 @@ def download_from_xnat(scan_path, study_id, scan_id, metaio, overwrite=False):
             xnat_project.experiments[scan_id].download(download_file)
             save_to_disk(download_file, download_path, scan_id, metaio)
 
+def collate_metadata(scan_path):
+
+    metadata = {}
+    for root, _, files in os.walk(scan_path):
+        for fil in files:
+            if fil.endswith('.mhd'):
+
+                md = {}
+                with open(os.path.join(root, fil),'r') as f:
+                    contents = f.read().split('\n')
+                    
+                    for attr in contents:
+                        if attr:
+                            key, val = attr.split(' = ')
+
+                            if key in ['ObjectType','AnatomicalOrientation','ElementType']:
+                                md[key]=val
+
+                            if key == 'NDims':
+                                md[key]=int(val)
+
+                            if key in ['BinaryData', 'BinaryDataByteOrderMSB', 'CompressedData']:
+                                md[key]=(val=='True')
+
+                            if key == 'TransformMatrix':
+                                md[key]=np.array(val.split(' '),int).reshape([3,3])
+
+                            if key in ['Offset', 'CenterOfRotation', 'ElementSpacing', 'DimSize']:
+                                md[key]=np.array(val.split(' '), np.float64)
+
+                    metadata[os.path.join(root, fil)] = md
+
+    df = pd.DataFrame.from_dict(metadata, orient='index').reset_index()
+
+ 
+    df.to_csv(os.path.join(scan_path, 'metadata.csv'))
+
+
+
+
+
 
 
 if __name__ == '__main__':
@@ -222,3 +263,17 @@ if __name__ == '__main__':
                            study_id=study_id,
                            scan_id=scan_id,
                            metaio=True)
+    if action == 'xyz2irc':
+
+        xyz = np.array(sys.argv[2].split(','),dtype=np.float64)
+        origin = np.array(sys.argv[3].split(','),dtype=np.float64)
+        spacing = np.array(sys.argv[4].split(','),dtype=np.float64)
+
+        print(xyz2irc(xyz, origin, spacing))
+
+
+    if action == 'collate_metadata':
+
+        scan_path = sys.argv[2]
+
+        collate_metadata(scan_path)
