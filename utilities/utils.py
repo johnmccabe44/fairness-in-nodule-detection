@@ -231,7 +231,11 @@ def collate_metadata(scan_path):
                                 md[key]=(val=='True')
 
                             if key == 'TransformMatrix':
-                                md[key]=np.array(val.split(' '),int).reshape([3,3])
+                                try:
+                                    md[key]=np.array(val.split(' '),int).reshape([3,3])
+                                except:
+                                    print(f'error: {fil}, transformation matrix')
+                                    md[key] = pd.NA
 
                             if key in ['Offset', 'CenterOfRotation', 'ElementSpacing', 'DimSize']:
                                 md[key]=np.array(val.split(' '), np.float64)
