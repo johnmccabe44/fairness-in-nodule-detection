@@ -54,7 +54,7 @@ def train_nodulenet(data_loader, net, loss, epoch, optimizer, device, args):
         optimizer.step()
 
         loss_output[0] = loss_output[0].data
-        metrics.append(loss_output)
+        metrics.append([loss.cpu() for loss in loss_output])
 
     end_time = time.time()
 
@@ -95,7 +95,7 @@ def validate_nodulenet(data_loader, net, loss, device):
         loss_output = loss(output, target, train = False)
 
         loss_output[0] = loss_output[0].data
-        metrics.append(loss_output)    
+        metrics.append([loss.cpu() for loss in loss_output])    
     end_time = time.time()
 
     metrics = np.asarray(metrics, np.float32)
