@@ -144,41 +144,46 @@ def main():
     with torch.no_grad():
         start_time = time.time()
         for inference_data in inference_loader:
-            inference_img_filenames = [
-                inference_data_i["image_meta_dict"]["filename_or_obj"] for inference_data_i in inference_data
-            ]
-            print(inference_img_filenames)
-            use_inferer = not all(
-                [inference_data_i["image"][0, ...].numel() < np.prod(patch_size) for inference_data_i in inference_data]
-            )
-            inference_inputs = [inference_data_i["image"].to(device) for inference_data_i in inference_data]
-
-            if amp:
-                with torch.cuda.amp.autocast():
-                    inference_outputs = detector(inference_inputs, use_inferer=use_inferer)
-            else:
-                inference_outputs = detector(inference_inputs, use_inferer=use_inferer)
-            del inference_inputs
-
-            # update inference_data for post transform
-            for i in range(len(inference_outputs)):
-                inference_data_i, inference_pred_i = (
-                    inference_data[i],
-                    inference_outputs[i],
+            try:
+                inference_img_filenames = [
+                    inference_data_i["image_meta_dict"]["filename_or_obj"] for inference_data_i in inference_data
+                ]
+                print(inference_img_filenames)
+                use_inferer = not all(
+                    [inference_data_i["image"][0, ...].numel() < np.prod(patch_size) for inference_data_i in inference_data]
                 )
-                inference_data_i["pred_box"] = inference_pred_i[detector.target_box_key].to(torch.float32)
-                inference_data_i["pred_label"] = inference_pred_i[detector.target_label_key]
-                inference_data_i["pred_score"] = inference_pred_i[detector.pred_score_key].to(torch.float32)
-                inference_data[i] = post_transforms(inference_data_i)
+                inference_inputs = [inference_data_i["image"].to(device) for inference_data_i in inference_data]
 
-            for inference_img_filename, inference_pred_i in zip(inference_img_filenames, inference_data):
-                result = {
-                    "label": inference_pred_i["pred_label"].cpu().detach().numpy().tolist(),
-                    "box": inference_pred_i["pred_box"].cpu().detach().numpy().tolist(),
-                    "score": inference_pred_i["pred_score"].cpu().detach().numpy().tolist(),
-                }
-                result.update({"image": inference_img_filename})
-                results_dict["validation"].append(result)
+                if amp:
+                    with torch.cuda.amp.autocast():
+                        inference_outputs = detector(inference_inputs, use_inferer=use_inferer)
+                else:
+                    inference_outputs = detector(inference_inputs, use_inferer=use_inferer)
+                del inference_inputs
+
+                # update inference_data for post transform
+                for i in range(len(inference_outputs)):
+                    inference_data_i, inference_pred_i = (
+                        inference_data[i],
+                        inference_outputs[i],
+                    )
+                    inference_data_i["pred_box"] = inference_pred_i[detector.target_box_key].to(torch.float32)
+                    inference_data_i["pred_label"] = inference_pred_i[detector.target_label_key]
+                    inference_data_i["pred_score"] = inference_pred_i[detector.pred_score_key].to(torch.float32)
+                    inference_data[i] = post_transforms(inference_data_i)
+
+                for inference_img_filename, inference_pred_i in zip(inference_img_filenames, inference_data):
+                    result = {
+                        "label": inference_pred_i["pred_label"].cpu().detach().numpy().tolist(),
+                        "box": inference_pred_i["pred_box"].cpu().detach().numpy().tolist(),
+                        "score": inference_pred_i["pred_score"].cpu().detach().numpy().tolist(),
+                    }
+                    result.update({"image": inference_img_filename})
+                    results_dict["validation"].append(result)
+
+            except Exception as err:
+
+                print(f'Error: {err} in file: {inference_data_i["image"]}')
 
     end_time = time.time()
     print("Testing time: ", end_time - start_time)
