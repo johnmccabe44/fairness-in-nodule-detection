@@ -258,7 +258,7 @@ def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir,
         optimizer.step()
 
         loss_output[0] = loss_output[0].data
-        metrics.append([loss.cpu() for loss in loss_output])
+        metrics.append([loss.cpu() if torch.is_tensor(loss) else loss for loss in loss_output])
 
     if epoch % save_freq == 0:            
         state_dict = net.module.state_dict()
@@ -312,7 +312,7 @@ def validate(data_loader, net, loss, device):
         loss_output = loss(output, target, train = False)
 
         loss_output[0] = loss_output[0].data
-        metrics.append([loss.cpu() for loss in loss_output])    
+        metrics.append([loss.cpu() if torch.is_tensor(loss) else loss for loss in loss_output])    
 
     end_time = time.time()
 
