@@ -1,4 +1,5 @@
 *.pyc
 *.ipynb*
 training/.flag*
+training/config_training.py
 prediction*.csv
