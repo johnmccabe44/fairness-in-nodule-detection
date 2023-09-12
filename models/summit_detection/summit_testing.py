@@ -183,7 +183,7 @@ def main():
 
             except Exception as err:
 
-                print(f'Error: {err} in file: {inference_data_i["image"]}')
+                print(f'Error: {err} in file: {inference_img_filenames}')
 
     end_time = time.time()
     print("Testing time: ", end_time - start_time)
