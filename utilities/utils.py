@@ -243,8 +243,11 @@ def collate_metadata(scan_path):
                     metadata[os.path.join(root, fil)] = md
 
     df = pd.DataFrame.from_dict(metadata, orient='index').reset_index()
-
- 
+    df['scan_id'] = df['index'].str.split('/').str[-1]
+    df['StudyId'] = md['scan_id'].str.split('_').str[0]
+    df[['x-offset', 'y-offset', 'z-offset']] = md.Offset.to_list()
+    df[['x-spacing', 'y-spacing','z-spacing']] = md.ElementSpacing.to_list()
+    df[['x-pixels', 'y-pixels', 'slices']] = md.DimSize.to_list()
     df.to_csv(os.path.join(scan_path, 'metadata.csv'))
 
 
