@@ -208,11 +208,18 @@ def download_from_xnat(scan_path, study_id, scan_id, metaio, overwrite=False):
 
 def collate_metadata(scan_path):
 
+    cnt = 0
     metadata = {}
     for root, _, files in os.walk(scan_path):
         for fil in files:
             if fil.endswith('.mhd'):
 
+                if cnt % 100:
+                    print('.')
+                else:
+                    print('.',end="")
+
+                cnt += 1
                 md = {}
                 with open(os.path.join(root, fil),'r') as f:
                     contents = f.read().split('\n')
