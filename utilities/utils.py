@@ -214,7 +214,7 @@ def collate_metadata(scan_path):
         for fil in files:
             if fil.endswith('.mhd'):
 
-                if cnt % 100:
+                if cnt % 100 == 0:
                     print('.')
                 else:
                     print('.',end="")
