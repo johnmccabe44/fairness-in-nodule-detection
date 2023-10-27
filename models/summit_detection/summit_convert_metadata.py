@@ -46,7 +46,7 @@ def main(cache_path, metadata_path):
             summit_datasplits[data_split].append(scan_item)
             i += 1
 
-            if not Path(cache_path,scan_item['image']).replace('mhd','nii.gz').exists():
+            if not Path(cache_path,scan_item['image'].replace('mhd','nii.gz')).exists():
                 summit_subset[data_split].append(scan_item)
                 j+= 1
 
