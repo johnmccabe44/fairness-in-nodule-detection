@@ -16,7 +16,7 @@ def main(cache_path, metadata_path):
     summit_datasplits = {'training' : [], 'validation' : []}
 
     i = j = 0
-
+    first = True
     for data_split in data_splits:
 
         scans = pd.read_csv(Path(metadata_path, data_split + '_scans.csv'))
@@ -45,6 +45,10 @@ def main(cache_path, metadata_path):
 
             summit_datasplits[data_split].append(scan_item)
             i += 1
+
+            if first:
+                print(Path(cache_path,scan_item['image']))
+                first = False
 
             if Path(cache_path,scan_item['image']).exists():
                 summit_subset[data_split].append(scan_item)
