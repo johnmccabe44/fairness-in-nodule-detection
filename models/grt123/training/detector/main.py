@@ -149,8 +149,14 @@ def main():
     if use_cuda:
         cudnn.benchmark = True
 
-        print(f"Available gpu's : {os.environ['CUDA_VISIBLE_DEVICES']}")
-        net = DataParallel(net, device_ids=os.environ['CUDA_VISIBLE_DEVICES'])
+        print(f"Available gpu's : {os.environ['CUDA_VISIBLE_DEVICES']}", flush=True)
+        
+        device_ids = [
+            int(device_id.strip())
+            for device_id in os.environ['CUDA_VISIBLE_DEVICES'].split(',')
+        ]
+
+        net = DataParallel(net, device_ids=device_ids)
 
 
     datadir = Path(args.data_dir, config_training['preprocess_result_path'])
