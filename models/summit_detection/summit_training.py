@@ -13,12 +13,14 @@ import argparse
 import gc
 import json
 import logging
+import os
 import sys
 import time
 
 import cv2
 import numpy as np
 import torch
+from torch.nn import DataParallel
 from generate_transforms import (
     generate_detection_train_transform,
     generate_detection_val_transform,
@@ -193,6 +195,17 @@ def main():
             size_divisible=size_divisible,
         )
     )
+    
+    if device.type == 'cuda':
+        DataParallel(net, device_ids=os.environ['CUDA_VISIBLE_DEVICES'])
+
+
+    start_epoch = 1
+    if args.resume:
+        checkpoint = torch.load(args.resume)
+        if start_epoch == 0:
+            start_epoch = checkpoint['epoch']
+        net.load_state_dict(checkpoint['state_dict'])
 
     # 3) build detector
     detector = RetinaNetDetector(network=net, anchor_generator=anchor_generator, debug=args.verbose).to(device)
@@ -249,7 +262,7 @@ def main():
     max_epochs = 300
     epoch_len = len(train_ds) // train_loader.batch_size
     w_cls = config_dict.get("w_cls", 1.0)  # weight between classification loss and box regression loss, default 1.0
-    for epoch in range(max_epochs):
+    for epoch in range(start_epoch, max_epochs):
         # ------------- Training -------------
         print("-" * 10)
         print(f"epoch {epoch + 1}/{max_epochs}")
