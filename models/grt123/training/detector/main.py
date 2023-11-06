@@ -148,7 +148,9 @@ def main():
     net = net.to(device)
     if use_cuda:
         cudnn.benchmark = True
-        net = DataParallel(net)
+
+        print(f"Available gpu's : {os.environ['CUDA_VISIBLE_DEVICES']}")
+        net = DataParallel(net, device_ids=os.environ['CUDA_VISIBLE_DEVICES'])
 
 
     datadir = Path(args.data_dir, config_training['preprocess_result_path'])
@@ -225,12 +227,15 @@ def main():
         return lr
     
     for epoch in range(start_epoch, args.epochs + 1):
+
         print_gpu_stats(device, f'Epoch {epoch}')        
         print(f'Training epoch {epoch}', flush=True)
-        train(train_loader, net, loss, epoch, optimizer, get_lr, args.save_freq, save_dir, device)
+        #train(train_loader, net, loss, epoch, optimizer, get_lr, args.save_freq, save_dir, device)
 
         if epoch % 10 == 0:
-            validate(val_loader, net, loss, device)
+            #validate(val_loader, net, loss, device)
+            pass
+            
 
 
 def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir, device):
