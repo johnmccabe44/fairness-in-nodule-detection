@@ -90,6 +90,7 @@ def load_scan_list(path_to_scan_list):
     return []
 
 def main():
+    print('Starting main')
     global args
     args = parser.parse_args()
     
@@ -148,15 +149,7 @@ def main():
     net = net.to(device)
     if use_cuda:
         cudnn.benchmark = True
-
-        print(f"Available gpu's : {os.environ['CUDA_VISIBLE_DEVICES']}", flush=True)
-        
-        device_ids = [
-            int(device_id.strip())
-            for device_id in os.environ['CUDA_VISIBLE_DEVICES'].split(',')
-        ]
-
-        net = DataParallel(net, device_ids=device_ids)
+        net = DataParallel(net)
 
 
     datadir = Path(args.data_dir, config_training['preprocess_result_path'])

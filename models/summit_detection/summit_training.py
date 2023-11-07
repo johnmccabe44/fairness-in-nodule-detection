@@ -76,7 +76,7 @@ def main():
     parser.add_argument(
         "-s",
         "--start-epoch",
-        default=1,
+        default=0,
         type=int,
         help="if resuming, epoch to start at",
     )
@@ -188,7 +188,7 @@ def main():
         torch.jit.load(args.model_path)
         
     else:
-        start_epoch = 1
+        start_epoch = 0
         conv1_t_size = [max(7, 2 * s + 1) for s in args.conv1_t_stride]
         backbone = resnet.ResNet(
             block=resnet.ResNetBottleneck,
@@ -218,11 +218,7 @@ def main():
         )
 
     if device.type == 'cuda':
-        device_ids = [
-            int(device_id.strip())
-            for device_id in os.environ['CUDA_VISIBLE_DEVICES'].split(',')
-        ]
-        DataParallel(net, device_ids=device_ids)
+        net = DataParallel(net)
 
     # 3) build detector
     detector = RetinaNetDetector(network=net, anchor_generator=anchor_generator, debug=args.verbose).to(device)
