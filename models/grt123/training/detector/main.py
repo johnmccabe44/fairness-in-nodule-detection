@@ -90,7 +90,7 @@ def load_scan_list(path_to_scan_list):
     return []
 
 def main():
-    print('Starting main')
+    print('Starting main', flush=True)
     global args
     args = parser.parse_args()
     
@@ -152,7 +152,9 @@ def main():
         net = DataParallel(net)
 
 
-    datadir = Path(args.data_dir, config_training['preprocess_result_path'])
+    datadir = Path(config_training['preprocess_result_path']) if not args.preprocess_result_path else Path(args.preprocess_result_path)
+
+    print(f"Data dir:{datadir}, file cnt: {len([fil for fil in os.listdir(datadir) if fil.find('clean')>-1])}", flush=True)
     
     if args.test == 1:
         margin = 32
@@ -162,8 +164,6 @@ def main():
                                  config['stride'],
                                  margin,
                                  config['pad_value'])
-
-
 
         dataset = data.DataBowl3Detector(
             datadir,
@@ -227,13 +227,13 @@ def main():
     
     for epoch in range(start_epoch, args.epochs + 1):
 
-        print_gpu_stats(device, f'Epoch {epoch}')        
         print(f'Training epoch {epoch}', flush=True)
-        #train(train_loader, net, loss, epoch, optimizer, get_lr, args.save_freq, save_dir, device)
+        train(train_loader, net, loss, epoch, optimizer, get_lr, args.save_freq, save_dir, device)
 
         if epoch % 10 == 0:
-            #validate(val_loader, net, loss, device)
-            pass
+            print(f'Validation epoch {epoch}', flush=True)
+            validate(val_loader, net, loss, device)
+            print('Returned back to loop!', flush=True)
             
 
 
@@ -293,7 +293,6 @@ def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir,
         np.mean(metrics[:, 3]),
         np.mean(metrics[:, 4]),
         np.mean(metrics[:, 5])), flush=True)
-    print
 
 def validate(data_loader, net, loss, device):
     start_time = time.time()
@@ -305,8 +304,6 @@ def validate(data_loader, net, loss, device):
         #data = Variable(data.cuda(async = True), volatile = True)
         #target = Variable(target.cuda(async = True), volatile = True)
         #coord = Variable(coord.cuda(async = True), volatile = True)
-
-        print(f'Validate batch ... {i}', flush=True)
 
         data = data.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
