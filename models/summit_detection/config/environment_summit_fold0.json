@@ -1,7 +1,0 @@
-{
-    "model_path": "/Users/john/Projects/SOTAEvaluationNoduleDetection/models/detection/trained_models/model_luna16_fold0.pt",
-    "data_base_dir": "/Users/john/Projects/SOTAEvaluationNoduleDetection/scans/nifti",
-    "data_list_file_path": "SUMMIT_datasplit/dataset_fold0.json",
-    "tfevent_path": "tfevent_train/summit_fold0",
-    "result_list_file_path": "result/result_summit_fold0.json"
-}
