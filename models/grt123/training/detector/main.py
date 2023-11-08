@@ -152,7 +152,7 @@ def main():
         net = DataParallel(net)
 
 
-    datadir = Path(args.datadir) if args.data_dir else Path(config_training['preprocess_result_path']) 
+    datadir = Path(args.data_dir) if args.data_dir else Path(config_training['preprocess_result_path']) 
 
     print(f"Data dir:{datadir}, file cnt: {len([fil for fil in os.listdir(datadir) if fil.find('clean')>-1])}", flush=True)
     
