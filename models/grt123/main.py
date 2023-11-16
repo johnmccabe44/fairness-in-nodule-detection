@@ -1,4 +1,6 @@
 import argparse
+
+from pathlib import Path
 from preprocessing import full_prep, full_prep_summit
 from config_submit import config as config_submit
 
@@ -176,7 +178,7 @@ def main(datapath, prep_result_path, bbox_result_path, n_gpu, n_worker_preproces
             nod_net = DataParallel(nod_net)
 
         if not os.path.exists(bbox_result_path):
-            os.mkdir(bbox_result_path)
+            Path(bbox_result_path).mkdir(parents=True, exist_ok=True)
 
         #testsplit = [f.split('_clean')[0] for f in os.listdir(prep_result_path) if '_clean' in f]
  
