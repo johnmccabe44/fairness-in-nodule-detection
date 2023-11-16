@@ -189,7 +189,10 @@ def main(datapath, prep_result_path, bbox_result_path, n_gpu, n_worker_preproces
 
         dataset = DataBowl3Detector(testsplit,config1,phase='test',split_comber=split_comber)
         test_loader = DataLoader(dataset,batch_size = 1,
-            shuffle = False,num_workers = 32,pin_memory=False,collate_fn =collate)
+                                shuffle = False,
+                                num_workers = args.n_worker_preprocessing,
+                                pin_memory=False,
+                                collate_fn=collate)
 
         test_detect(test_loader, nod_net, get_pbb, bbox_result_path, config1, n_gpu=n_gpu)
 
