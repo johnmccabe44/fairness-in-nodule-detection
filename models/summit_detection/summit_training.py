@@ -74,6 +74,13 @@ def main():
         help="number of gpus being used helps to define the batch size and workers",
     )
     parser.add_argument(
+        "-w",
+        "--workers",
+        default=7,
+        type=int,
+        help="number of workers used to data load",
+    )
+    parser.add_argument(
         "-r",
         "--resume",
         default=False,
@@ -111,7 +118,7 @@ def main():
         setattr(args, k, v)
 
 
-    print(f'Number of gpus:{args.gpus}, batch size: {args.gpus * 2}, args.workers: {args.gpus * 4}')
+    print(f'Number of gpus:{args.gpus}, batch size: {args.gpus * 2}, args.workers: {args.workers}')
 
     # 1. define transform
     intensity_transform = ScaleIntensityRanged(
@@ -160,7 +167,7 @@ def main():
         train_ds,
         batch_size=args.gpus * 2,
         shuffle=True,
-        num_workers=args.gpus * 4,
+        num_workers=args.workers,
         pin_memory=torch.cuda.is_available(),
         collate_fn=no_collation,
         persistent_workers=True,
