@@ -110,7 +110,7 @@ def main():
         setattr(args, k, v)
 
 
-    print(f'Number of gpus:{args.gpu}, batch size: {args.batch * 2}, args.workers: {args.gpus * 4}')
+    print(f'Number of gpus:{args.gpus}, batch size: {args.gpus * 2}, args.workers: {args.gpus * 4}')
 
     # 1. define transform
     intensity_transform = ScaleIntensityRanged(
