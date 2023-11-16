@@ -67,6 +67,12 @@ def main():
         help="whether to print verbose detail during training, recommand True when you are not sure about hyper-parameters",
     )
     parser.add_argument(
+        "-g",
+        "--gpus",
+        default=1,
+        help="number of gpus being used helps to define the batch size and workers",
+    )
+    parser.add_argument(
         "-r",
         "--resume",
         default=False,
@@ -148,9 +154,9 @@ def main():
     )
     train_loader = DataLoader(
         train_ds,
-        batch_size=1,
+        batch_size=args.gpus * 2,
         shuffle=True,
-        num_workers=7,
+        num_workers=args.gpus * 4,
         pin_memory=torch.cuda.is_available(),
         collate_fn=no_collation,
         persistent_workers=True,
@@ -266,7 +272,7 @@ def main():
     tensorboard_writer = SummaryWriter(args.tfevent_path)
 
     # 5. train
-    val_interval = 5  # do validation every val_interval epochs
+    val_interval = 10  # do validation every val_interval epochs
     coco_metric = COCOMetric(classes=["nodule"], iou_list=[0.1], max_detection=[100])
     best_val_epoch_metric = 0.0
     best_val_epoch = -1  # the epoch that gives best validation metrics
@@ -340,7 +346,7 @@ def main():
         tensorboard_writer.add_scalar("train_lr", optimizer.param_groups[0]["lr"], epoch + 1)
 
         # save last trained model
-        torch.jit.save(detector.network, env_dict["model_path"][:-3] + "_last.pt")
+        torch.jit.save(detector.network.module, env_dict["model_path"][:-3] + "_last.pt")
         print("saved last model")
 
         # ------------- Validation for model selection -------------

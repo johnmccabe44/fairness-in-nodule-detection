@@ -50,13 +50,17 @@ def main(cache_path, metadata_path):
                 summit_subset[data_split].append(scan_item)
                 j+= 1
 
-    Path('SUMMIT_datasplit/mhd_original').mkdir(parents=True, exist_ok=True)
-
     with open('SUMMIT_datasplit/mhd_original/dataset_fold0.json','w') as f:
-        json.dump(summit_datasplits, f)
+        json.dump(summit_datasplits, f, indent=4)
+
+    with open('SUMMIT_datasplit/dataset_fold0.json', 'w') as f:
+        json.dump(json.loads(json.dumps(summit_datasplits).replace('.mhd','.nii.gz')),f,indent=4)
 
     with open('SUMMIT_datasplit/mhd_original/dataset_fold0_subset.json','w') as f:
         json.dump(summit_subset, f)
+
+    with open('SUMMIT_datasplit/dataset_fold0_subset.json', 'w') as f:
+        json.dump(json.loads(json.dumps(summit_subset).replace('.mhd','.nii.gz')),f,indent=4)
 
 
 if __name__ == '__main__':
