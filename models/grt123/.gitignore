@@ -3,3 +3,4 @@
 training/.flag*
 training/config_training.py
 prediction*.csv
+config_submit.py
