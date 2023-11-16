@@ -109,6 +109,9 @@ def main():
     for k, v in config_dict.items():
         setattr(args, k, v)
 
+
+    print(f'Number of gpus:{args.gpu}, batch size: {args.batch * 2}, args.workers: {args.gpus * 4}')
+
     # 1. define transform
     intensity_transform = ScaleIntensityRanged(
         keys=["image"],
