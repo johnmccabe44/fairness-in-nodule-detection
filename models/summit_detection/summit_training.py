@@ -70,6 +70,7 @@ def main():
         "-g",
         "--gpus",
         default=1,
+        type=int,
         help="number of gpus being used helps to define the batch size and workers",
     )
     parser.add_argument(
