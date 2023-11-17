@@ -152,9 +152,9 @@ def main(datapath, prep_result_path, bbox_result_path, n_gpu, n_worker_preproces
 
 
     testsplit = [
-        fil.split('_clean')[0]
-        for fil in os.listdir(prep_result_path)
-        if fil.endswith('_clean.npy')
+        scan_id
+        for scan_id in pandas.read_csv(scanlist_path)['scan_id'].tolist()
+        if os.path.exists(os.path.join(prep_result_path, scan_id + '_clean.npy'))
     ]
     
     # check whether gpu is available
@@ -187,8 +187,14 @@ def main(datapath, prep_result_path, bbox_result_path, n_gpu, n_worker_preproces
         config1['datadir'] = prep_result_path
         split_comber = SplitComb(sidelen,config1['max_stride'],config1['stride'],margin,pad_value= config1['pad_value'])
 
-        dataset = DataBowl3Detector(testsplit,config1,phase='test',split_comber=split_comber)
-        test_loader = DataLoader(dataset,batch_size = 1,
+        dataset = DataBowl3Detector(testsplit,
+                                    config1,phase='test',
+                                    split_comber=split_comber
+                                )
+        
+
+        test_loader = DataLoader(dataset,
+                                batch_size = 1,
                                 shuffle = False,
                                 num_workers = args.n_worker_preprocessing,
                                 pin_memory=False,
