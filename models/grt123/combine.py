@@ -5,11 +5,12 @@ import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
+import tqdm
 from typing import List
-import sys
 
 from layers import nms,iou
-from models.grt123.main import parse_arguments
+
+MIN_THRESHOLD = -10000000
 
 class ShapeDifferentException(Exception):
     pass
@@ -23,15 +24,64 @@ def parse_arguments():
 
     parser.add_argument('--metadata-stem', type=str, help='Stem of file that determines the scans and metadata file.')
 
-    parser.add_argument('--bbox_result_path', type=str, help='Path to where the predictions live')
+    parser.add_argument('--bbox-result-path', type=str, help='Path to where the predictions live')
 
-    parser.add_argument('--output_path', type=str, help='Output path where the final analysis files will live')
+    parser.add_argument('--output-path', type=str, help='Output path where the final analysis files will live')
 
     parser.add_argument('--threshold', type=float, help='Threshold to filter the predictions by i.e. keep anything with prediction > threshold')
 
     parser.add_argument('--workers', type=int, help='Number of workers used in multi-processing, assume cores * 2')
 
-def merge_lbl_and_metadata(metadata, lbb, scan_id):
+    args = parser.parse_args()
+    return args 
+
+def load_pbb(idx: int, pbb_paths: List[Path], threshold=-1):
+    """
+        load the candidates for this scan
+        use nms to de-duplicate and apply threshold
+    """
+    pbb_path = pbb_paths[idx]
+    pbb = np.load(pbb_path)
+    pbb = pbb[pbb[:,0]>threshold]    
+    pbb = nms(pbb, 0.05)
+    if pbb.shape[0]>0:
+        return (
+            pd.DataFrame(pbb, columns=['threshold','index', 'row', 'col','diameter'])
+            .assign(name=pbb_path.name.split('_pbb')[0])
+        )
+    else:
+        return pd.DataFrame()
+
+def combine_pbb(scan_ids: List[str], bbox_path: Path, threshold: float, workers: int):
+    """
+        load the candidates for this scan
+        use nms to de-duplicate and apply threshold
+    """
+
+    pbb_paths = [
+        Path(root, fil)
+        for root, _, files in os.walk(bbox_path)
+        for fil in files 
+        if fil.endswith('_pbb.npy') and fil.split('_pbb')[0] in scan_ids
+    ]
+    N = len(pbb_paths)
+
+    if workers>1:
+        partial_read_pbb = partial(load_pbb, pbb_paths=pbb_paths, threshold=threshold)
+        
+        with Pool(workers) as pool:
+            pbb_dfs = list(tqdm.tqdm(pool.imap(partial_read_pbb, range(N)),total=N))
+
+    else:
+        
+        pbb_dfs = []
+        for idx in tqdm.tqdm(range(N), total=N):
+            pbb_dfs.append(load_pbb(idx, pbb_paths, threshold))
+
+
+    return pd.concat([df for df in pbb_dfs if df.shape[0>0]]).reset_index().drop('level_0', axis=1)
+
+def merge_lbl_and_metadata(idx:int, lbb_paths: List[Path], metadata: pd.DataFrame):
     """
         The lbl data only contains adjusted irc coordindates
         and we need to attach nodule details such as type and
@@ -40,7 +90,10 @@ def merge_lbl_and_metadata(metadata, lbb, scan_id):
         same therefore repeating the process and adding additional
         variables to the adjusted irc data.
     """
-    stem = scan_id.split('_',1)[0]
+
+    lbb = np.load(lbb_paths[idx])
+    scan_id = lbb_paths[idx].name.split('_lbb.npy')[0]
+    stem = lbb_paths[idx].name.split('_',1)[0]
 
     nodule_metadata = metadata[metadata.main_participant_id==stem]
 
@@ -66,73 +119,47 @@ def merge_lbl_and_metadata(metadata, lbb, scan_id):
     nodule_metadata.loc[:,'threshold'] = MIN_THRESHOLD
     nodule_metadata.loc[:,'name'] = scan_id
 
-    return nodule_metadata[['name','threshold','index', 'row','col','diameter','nodule_type','nodule_brock_score', 'management_plan']]
+    return nodule_metadata
 
-def load_pbb(idx: int, ppb_paths: List[Path], threshold=-1):
-    """
-        load the candidates for this scan
-        use nms to de-duplicate and apply threshold
-    """
-    pbb_path = ppb_paths[idx]
-    pbb = np.load(pbb_path)
-    pbb = nms(pbb, 0.05)
-    pbb = pbb[pbb[:,0]>threshold]
-    if pbb.shape[0]>0:
-        return (
-            pd.DataFrame(pbb, columns=['threshold','index', 'row', 'col','diameter'])
-            .assign(name=pbb_path.name.split('_pbb')[0])
-        )
-    else:
-        return None
-
-def combine_pbb(scans: List[str], bbox_path: Path, threshold: float, workers: int):
-    """
-        load the candidates for this scan
-        use nms to de-duplicate and apply threshold
-    """
-
-    pbb_paths = [
-        Path(root, fil)
-        for root, _, files in os.walk(bbox_path)
-        for fil in files 
-        if fil.endswith('_pbb.npy') and fil.split('_pbb')[0] in scans
-    ]
-
-    pbb_dfs = []
-    if workers>1:
-        N = len(pbb_paths)
-        partial_read_pbb = partial(load_pbb, pbb_paths=pbb_paths, threshold=threshold)
-        with Pool(workers) as pool:
-            pbb_dfs = pool.map(partial_read_pbb, range(N))
-    else:
-        for idx in range(len(N)):
-            pbb_dfs.append(load_pbb(idx, pbb_paths, threshold))
-
-    combined_pbb = pd.concat([df for df in pbb_dfs if df])
-    return combined_pbb.reset_index().drop('level_0', axis=1)
-
-def combine_metadata(scans: List[str], metadata: pd.DataFrame, bbox_path: Path):
+def combine_metadata(scan_ids: List[str], metadata: pd.DataFrame, bbox_path: Path, workers: int):
     """
         combine the lbl outputs with the original metadata
         this allows for analysis to include the profile and
         identification of nodules that were not missed
 
     """
-    return pd.concat([
-        merge_lbl_and_metadata(
-            metadata, 
-            np.load(Path(bbox_path,scan_id + '_lbb.npy')),
-            scan_id)
-        for scan_id in scans.scan_id
-        if os.path.exists(Path(bbox_path,scan_id + '_lbb.npy'))
-    ]).reset_index().rename(columns={'level_0' : 'id'})
 
-def main(scans : List[str], metadata: pd.DataFrame, bbox_path: Path, threshold: float, workers: int):
-    
-    combined_predictions = combine_pbb(scans, bbox_path, threshold, workers)
+    lbb_paths = [
+        Path(root, fil)
+        for root, _, files in os.walk(bbox_path)
+        for fil in files
+        if fil.endswith('_lbb.npy') and fil.split('_lbb')[0] in scan_ids
+    ]
+
+
+    if workers>1:
+        N = len(lbb_paths)
+
+        partial_merge_lbl_and_metadata = partial(merge_lbl_and_metadata, 
+                                                 lbb_paths=lbb_paths, 
+                                                 metadata=metadata)
         
-    combined_nodule_data = combine_metadata(scans, metadata, bbox_path, workers)
+        with Pool(workers) as pool:
+            md_and_lbb = list(tqdm.tqdm(pool.imap(partial_merge_lbl_and_metadata, range(N)),total=N))
 
+    else:
+            md_and_lbb = [
+                merge_lbl_and_metadata(idx, lbb_paths, metadata)
+                for idx in range(N)
+            ]
+
+    return pd.concat(md_and_lbb).reset_index().rename(columns={'level_0' : 'id'})
+
+def main(scan_ids : List[str], metadata: pd.DataFrame, bbox_path: Path, output_path: Path, threshold: float, workers: int):
+    
+    combine_pbb(scan_ids, bbox_path, threshold, workers).to_csv(Path(output_path, 'predictions.csv'), index=False)
+    
+    combine_metadata(scan_ids, metadata, bbox_path, workers).to_csv(Path(output_path, 'metadata.csv'), index=False)
 
 
 if __name__ == '__main__':
@@ -144,7 +171,7 @@ if __name__ == '__main__':
     metadata_path = Path(args.metadata_path, args.metadata_stem + '_metadata.csv')
     metadata = pd.read_csv(metadata_path)
 
-    bbox_path = Path(args.bbox_path)
+    bbox_path = Path(args.bbox_result_path)
 
     output_path = Path(args.output_path)
 
@@ -152,5 +179,4 @@ if __name__ == '__main__':
     
     workers = args.workers
 
-
-    main(scans, metadata_path, bbox_path, output_path, threshold, workers)
+    main(scans, metadata, bbox_path, output_path, threshold, workers)
