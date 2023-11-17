@@ -174,6 +174,8 @@ if __name__ == '__main__':
     bbox_path = Path(args.bbox_result_path)
 
     output_path = Path(args.output_path)
+    Path(output_path).mkdir(parents=True, exist_ok=True)
+
 
     threshold = args.threshold
     
