@@ -577,11 +577,19 @@ def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,serie
 
 if __name__ == '__main__':
 
-    annotations_filename          = sys.argv[1]
-    annotations_excluded_filename = sys.argv[2]
-    seriesuids_filename           = sys.argv[3]
-    results_filename              = sys.argv[4]
-    outputDir                     = sys.argv[5]
+
+    #annotations_filename          = sys.argv[1]
+    #annotations_excluded_filename = sys.argv[2]
+    #seriesuids_filename           = sys.argv[3]
+    #results_filename              = sys.argv[4]
+    #outputDir                     = sys.argv[5]
+
+    annotations_filename          = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/detect_nodule_annotations.csv'
+    annotations_excluded_filename = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/detect_nodule_exclude_annotations.csv'
+    seriesuids_filename           = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/detect_scanslist.csv'
+    results_filename              = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/detect_predictions.csv'
+    outputDir                     = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/detect'
+
     # execute only if run as a script
     noduleCADEvaluation(annotations_filename, annotations_excluded_filename, seriesuids_filename, results_filename, outputDir)
     print("Finished!")

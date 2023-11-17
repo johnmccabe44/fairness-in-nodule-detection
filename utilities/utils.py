@@ -217,7 +217,7 @@ def collate_metadata(scan_path):
                 if cnt % 100 == 0:
                     print(f'{cnt}')
                 else:
-                    print('.}',end="")
+                    print('.',end="")
 
                 cnt += 1
                 md = {}
