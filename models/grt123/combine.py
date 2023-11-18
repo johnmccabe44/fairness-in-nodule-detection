@@ -40,17 +40,21 @@ def load_pbb(idx: int, pbb_paths: List[Path], threshold=-1):
         load the candidates for this scan
         use nms to de-duplicate and apply threshold
     """
-    pbb_path = pbb_paths[idx]
-    pbb = np.load(pbb_path)
-    pbb = pbb[pbb[:,0]>threshold]    
-    pbb = nms(pbb, 0.05)
-    if pbb.shape[0]>0:
-        return (
-            pd.DataFrame(pbb, columns=['threshold','index', 'row', 'col','diameter'])
-            .assign(name=pbb_path.name.split('_pbb')[0])
-        )
-    else:
-        return pd.DataFrame()
+    try:
+        pbb_path = pbb_paths[idx]
+        pbb = np.load(pbb_path)
+        pbb = pbb[pbb[:,0]>threshold]    
+        pbb = nms(pbb, 0.05)
+        if pbb.shape[0]>0:
+            return (
+                pd.DataFrame(pbb, columns=['threshold','index', 'row', 'col','diameter'])
+                .assign(name=pbb_path.name.split('_pbb')[0])
+            )
+        else:
+            return pd.DataFrame()
+    except Exception as err:
+        print(f'Error occured processing:{pbb_paths[idx]}, Error:{err}', flush=True)
+        return pd.DataFrame()    
 
 def combine_pbb(scan_ids: List[str], bbox_path: Path, threshold: float, workers: int):
     """
@@ -91,35 +95,39 @@ def merge_lbl_and_metadata(idx:int, lbb_paths: List[Path], metadata: pd.DataFram
         variables to the adjusted irc data.
     """
 
-    lbb = np.load(lbb_paths[idx])
-    scan_id = lbb_paths[idx].name.split('_lbb.npy')[0]
-    stem = lbb_paths[idx].name.split('_',1)[0]
+    try: 
+        lbb = np.load(lbb_paths[idx])
+        scan_id = lbb_paths[idx].name.split('_lbb.npy')[0]
+        stem = lbb_paths[idx].name.split('_',1)[0]
 
-    nodule_metadata = metadata[metadata.main_participant_id==stem]
+        nodule_metadata = metadata[metadata.main_participant_id==stem]
 
-    if nodule_metadata.shape[0] == 0 and np.array_equal(lbb, [[0,0,0,0]]):
-        return None
-    
-    if nodule_metadata.shape[0] == 0 and not np.array_equal(lbb, [[0,0,0,0]]):
-        raise ShapeDifferentException(f'Label and metadata mismatch for stem. md:{metadata.shape[0]}, lbb:{lbb.shape[0]}, {lbb}')
-    
-    if nodule_metadata.shape[0] > 0 and np.array_equal(lbb, [[0,0,0,0]]):
-        raise ShapeDifferentException(f'Label and metadata mismatch for stem. md:{metadata.shape[0]}, lbb:{lbb.shape[0]}, {lbb}')
-    
-    if nodule_metadata.shape[0] != lbb.shape[0]:
-        raise ShapeDifferentException(f'Label and metadata mismatch for stem. md:{metadata.shape[0]}, lbb:{lbb.shape[0]}, {lbb}')
-    
-    d_mean = np.mean(lbb[:,3] / nodule_metadata.nodule_diameter_mm)
-    d_std = np.std(lbb[:,3] / nodule_metadata.nodule_diameter_mm)
+        if nodule_metadata.shape[0] == 0 and np.array_equal(lbb, [[0,0,0,0]]):
+            return None
+        
+        if nodule_metadata.shape[0] == 0 and not np.array_equal(lbb, [[0,0,0,0]]):
+            raise ShapeDifferentException(f'Label and metadata mismatch for stem. md:{metadata.shape[0]}, lbb:{lbb.shape[0]}, {lbb}')
+        
+        if nodule_metadata.shape[0] > 0 and np.array_equal(lbb, [[0,0,0,0]]):
+            raise ShapeDifferentException(f'Label and metadata mismatch for stem. md:{metadata.shape[0]}, lbb:{lbb.shape[0]}, {lbb}')
+        
+        if nodule_metadata.shape[0] != lbb.shape[0]:
+            raise ShapeDifferentException(f'Label and metadata mismatch for stem. md:{metadata.shape[0]}, lbb:{lbb.shape[0]}, {lbb}')
+        
+        d_mean = np.mean(lbb[:,3] / nodule_metadata.nodule_diameter_mm)
+        d_std = np.std(lbb[:,3] / nodule_metadata.nodule_diameter_mm)
 
-    if d_mean > 1 or d_std > 0.0001:
-        raise TooHighMetricException(f'Mean is too high for the spacing: {scan_id}')
+        if d_mean > 1 or d_std > 0.0001:
+            raise TooHighMetricException(f'Mean is too high for the spacing: {scan_id}')
 
-    nodule_metadata.loc[:,['index','row','col','diameter']] = lbb
-    nodule_metadata.loc[:,'threshold'] = MIN_THRESHOLD
-    nodule_metadata.loc[:,'name'] = scan_id
+        nodule_metadata.loc[:,['index','row','col','diameter']] = lbb
+        nodule_metadata.loc[:,'threshold'] = MIN_THRESHOLD
+        nodule_metadata.loc[:,'name'] = scan_id
 
-    return nodule_metadata
+        return nodule_metadata
+    except Exception as err:
+        print(f'Error occured processing:{lbb_paths[idx]}, Error:{err}', flush=True)
+        return pd.DataFrame()
 
 def combine_metadata(scan_ids: List[str], metadata: pd.DataFrame, bbox_path: Path, workers: int):
     """
