@@ -144,9 +144,8 @@ def combine_metadata(scan_ids: List[str], metadata: pd.DataFrame, bbox_path: Pat
         if fil.endswith('_lbb.npy') and fil.split('_lbb')[0] in scan_ids
     ]
 
-
+    N = len(lbb_paths)
     if workers>1:
-        N = len(lbb_paths)
 
         partial_merge_lbl_and_metadata = partial(merge_lbl_and_metadata, 
                                                  lbb_paths=lbb_paths, 
