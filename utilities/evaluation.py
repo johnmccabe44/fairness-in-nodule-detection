@@ -200,7 +200,7 @@ def computeFROC(FROCGTList, FROCProbList, totalNumberOfImages, excludeList):
     return fps, sens, thresholds
 
 def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemName, maxNumberOfCADMarks=-1,
-                performBootstrapping=False,numberOfBootstrapSamples=1000,confidence = 0.95):
+                performBootstrapping=False,numberOfBootstrapSamples=1000,confidence = 0.95, ethnicity=None):
     '''
     function to evaluate a CAD algorithm
     @param seriesUIDs: list of the seriesUIDs of the cases to be processed
@@ -258,9 +258,11 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
 
                 nodules = nodules2
         
-        print('adding candidates: ' + seriesuid)
+        #print('adding candidates: ' + seriesuid)
         allCandsCAD[seriesuid] = nodules
     
+    print(f'Ethnicity: {ethnicity}, Scans:{len(seriesUIDs)}, Nodules:{len(nodules.keys())}')
+
     # open output files
     nodNoCandFile = open(os.path.join(outputDir, "nodulesWithoutCandidate_%s.txt" % CADSystemName), 'w')
     
@@ -485,7 +487,7 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
         plt.xlabel('Average number of false positives per scan')
         plt.ylabel('Sensitivity')
         plt.legend(loc='lower right')
-        plt.title('FROC performance - %s' % (CADSystemName))
+        plt.title('FROC performance - %s - %s' % (CADSystemName, ethnicity))
         
         if bLogPlot:
             plt.xscale('log', base=2)
@@ -531,7 +533,7 @@ def collectNoduleAnnotations(annotations, annotations_excluded, seriesUIDs):
     noduleCountTotal = 0
     
     for seriesuid in seriesUIDs:
-        print('adding nodule annotations: ' + seriesuid)
+        #print('adding nodule annotations: ' + seriesuid)
         
         nodules = []
         numberOfIncludedNodules = 0
@@ -578,7 +580,7 @@ def collect(annotations_filename,annotations_excluded_filename,seriesuids_filena
     return (allNodules, seriesUIDs)
     
     
-def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,seriesuids_filename,results_filename,outputDir):
+def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,seriesuids_filename,results_filename,outputDir, ethnicity):
     '''
     function to load annotations and evaluate a CAD algorithm
     @param annotations_filename: list of annotations
@@ -600,7 +602,8 @@ def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,serie
                 maxNumberOfCADMarks=100,
                 performBootstrapping=bPerformBootstrapping,
                 numberOfBootstrapSamples=bNumberOfBootstrapSamples,
-                confidence=bConfidence)
+                confidence=bConfidence,
+                ethnicity=ethnicity)
 
 
 if __name__ == '__main__':
