@@ -25,6 +25,7 @@ CADProbability_label = 'threshold'
 noduleType_label = 'nodule_type'
 brockScore_label = 'brock_score'
 managementPlan_label = 'management_plan'
+ethnicity_label = 'ethnic_group'
 
 # plot settings
 FROC_minX = 0.125 # Mininum value of x-axis of FROC curve
@@ -37,7 +38,7 @@ class NoduleFinding(object):
   '''
   
   def __init__(self, noduleid=None, coordX=None, coordY=None, coordZ=None, coordType="World",
-               CADprobability=None, noduleType=None, brockScore=None, manegementPlan=None, diameter=None, state=None, seriesInstanceUID=None):
+               CADprobability=None, noduleType=None, brockScore=None, managementPlan=None, diameter=None, state=None, ethnicGroup=None, seriesInstanceUID=None):
 
     # set the variables and convert them to the correct type
     self.id = noduleid
@@ -48,7 +49,8 @@ class NoduleFinding(object):
     self.CADprobability = CADprobability
     self.noduleType = noduleType
     self.brockScore = brockScore
-    self.manegementPlan = manegementPlan
+    self.managementPlan = managementPlan
+    self.ethnicGroup = ethnicGroup
     self.diameter_mm = diameter
     self.state = state
     self.candidateID = None
@@ -241,13 +243,13 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
             if len(nodules.keys()) > maxNumberOfCADMarks:
                 # make a list of all probabilities
                 probs = []
-                for keytemp, noduletemp in nodules.iteritems():
+                for keytemp, noduletemp in nodules.items():
                     probs.append(float(noduletemp.CADprobability))
                 probs.sort(reverse=True) # sort from large to small
                 probThreshold = probs[maxNumberOfCADMarks]
                 nodules2 = {}
                 nrNodules2 = 0
-                for keytemp, noduletemp in nodules.iteritems():
+                for keytemp, noduletemp in nodules.items():
                     if nrNodules2 >= maxNumberOfCADMarks:
                         break
                     if float(noduletemp.CADprobability) > probThreshold:
@@ -360,7 +362,15 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
                     FROCProbList.append(float(maxProb))
                     FPDivisorList.append(seriesuid)
                     excludeList.append(False)
-                    FROCtoNoduleMap.append("%s,%s,%s,%s,%s,%.9f,%s,%.9f" % (seriesuid, noduleAnnot.id, noduleAnnot.coordX, noduleAnnot.coordY, noduleAnnot.coordZ, float(noduleAnnot.diameter_mm), str(candidate.id), float(candidate.CADprobability)))
+                    FROCtoNoduleMap.append("%s,%s,%s,%s,%s,%.9f,%s,%.9f" % (
+                        seriesuid, 
+                        noduleAnnot.id,
+                        noduleAnnot.coordX,
+                        noduleAnnot.coordY,
+                        noduleAnnot.coordZ,
+                        float(noduleAnnot.diameter_mm),
+                        str(candidate.id),
+                        float(candidate.CADprobability)))
                     candTPs += 1
                 else:
                     candFNs += 1
@@ -369,7 +379,16 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
                     FROCProbList.append(minProbValue)
                     FPDivisorList.append(seriesuid)
                     excludeList.append(True)
-                    FROCtoNoduleMap.append("%s,%s,%s,%s,%s,%.9f,%s,%s" % (seriesuid, noduleAnnot.id, noduleAnnot.coordX, noduleAnnot.coordY, noduleAnnot.coordZ, float(noduleAnnot.diameter_mm), int(-1), "NA"))
+                    FROCtoNoduleMap.append("%s,%s,%s,%s,%s,%.9f,%s,%s" % (
+                        seriesuid,
+                        noduleAnnot.id,
+                        noduleAnnot.coordX,
+                        noduleAnnot.coordY,
+                        noduleAnnot.coordZ,
+                        float(noduleAnnot.diameter_mm),
+                        int(-1),
+                        "NA"))
+                    
                     nodNoCandFile.write("%s,%s,%s,%s,%s,%.9f,%s\n" % (seriesuid, 
                                                                       noduleAnnot.id,
                                                                       noduleAnnot.coordX,
@@ -385,9 +404,17 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
             FROCProbList.append(float(candidate3.CADprobability))
             FPDivisorList.append(seriesuid)
             excludeList.append(False)
-            FROCtoNoduleMap.append("%s,%s,%s,%s,%s,%s,%.9f" % (seriesuid, -1, candidate3.coordX, candidate3.coordY, candidate3.coordZ, str(candidate3.id), float(candidate3.CADprobability)))
+            FROCtoNoduleMap.append("%s,%s,%s,%s,%s,%s,%.9f" % (seriesuid,
+                                                               -1,
+                                                               candidate3.coordX,
+                                                               candidate3.coordY,
+                                                               candidate3.coordZ,
+                                                               str(candidate3.id),
+                                                               float(candidate3.CADprobability)))
 
-    if not (len(FROCGTList) == len(FROCProbList) and len(FROCGTList) == len(FPDivisorList) and len(FROCGTList) == len(FROCtoNoduleMap) and len(FROCGTList) == len(excludeList)):
+    if not (len(FROCGTList) == len(FROCProbList) and len(FROCGTList) == len(FPDivisorList) and \
+            len(FROCGTList) == len(FROCtoNoduleMap) and len(FROCGTList) == len(excludeList)):
+        
         nodOutputfile.write("Length of FROC vectors not the same, this should never happen! Aborting..\n")
 
     nodOutputfile.write("Candidate detection results:\n")
@@ -485,6 +512,7 @@ def getNodule(annotation, header, state = ""):
     nodule.noduleType = annotation[header.index(noduleType_label)] if noduleType_label in header else 'na'
     nodule.brockScore = annotation[header.index(brockScore_label)] if brockScore_label in header else -1000000000.0
     nodule.managementPlan = annotation[header.index(managementPlan_label)] if managementPlan_label in header else 'na'
+    nodule.ethnicGroup = annotation[header.index(ethnicity_label)] if ethnicity_label in header else 'na'
     
     if diameter_mm_label in header:
         nodule.diameter_mm = annotation[header.index(diameter_mm_label)]
@@ -584,11 +612,11 @@ if __name__ == '__main__':
     #results_filename              = sys.argv[4]
     #outputDir                     = sys.argv[5]
 
-    annotations_filename          = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/detect_nodule_annotations.csv'
-    annotations_excluded_filename = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/detect_nodule_exclude_annotations.csv'
-    seriesuids_filename           = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/detect_scanslist.csv'
-    results_filename              = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/detect_predictions.csv'
-    outputDir                     = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/detect'
+    annotations_filename          = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/grt123/all/nodule_annotations.csv'
+    annotations_excluded_filename = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/grt123/all/nodule_exclude_annotations.csv'
+    seriesuids_filename           = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/grt123/all/scanslist.csv'
+    results_filename              = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/grt123/all/predictions.csv'
+    outputDir                     = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/grt123/all/results'
 
     # execute only if run as a script
     noduleCADEvaluation(annotations_filename, annotations_excluded_filename, seriesuids_filename, results_filename, outputDir)
