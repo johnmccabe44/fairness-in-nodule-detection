@@ -29,7 +29,7 @@ ethnicity_label = 'ethnic_group'
 
 # plot settings
 FROC_minX = 0.125 # Mininum value of x-axis of FROC curve
-FROC_maxX = 8 # Maximum value of x-axis of FROC curve
+FROC_maxX = 128 # Maximum value of x-axis of FROC curve
 bLogPlot = True
 
 class NoduleFinding(object):
@@ -200,7 +200,7 @@ def computeFROC(FROCGTList, FROCProbList, totalNumberOfImages, excludeList):
     return fps, sens, thresholds
 
 def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemName, maxNumberOfCADMarks=-1,
-                performBootstrapping=False,numberOfBootstrapSamples=1000,confidence = 0.95, ethnicity=None):
+                performBootstrapping=False,numberOfBootstrapSamples=1000,confidence = 0.95, filter=None):
     '''
     function to evaluate a CAD algorithm
     @param seriesUIDs: list of the seriesUIDs of the cases to be processed
@@ -260,8 +260,6 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
         
         #print('adding candidates: ' + seriesuid)
         allCandsCAD[seriesuid] = nodules
-    
-    print(f'Ethnicity: {ethnicity}, Scans:{len(seriesUIDs)}, Nodules:{len(nodules.keys())}')
 
     # open output files
     nodNoCandFile = open(os.path.join(outputDir, "nodulesWithoutCandidate_%s.txt" % CADSystemName), 'w')
@@ -287,6 +285,7 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
     ignoredCADMarksList = []
 
     # -- loop over the cases
+    print('Cases:', len(seriesUIDs))
     for seriesuid in seriesUIDs:
         # get the candidates for this case
         try:
@@ -487,21 +486,21 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
         plt.xlabel('Average number of false positives per scan')
         plt.ylabel('Sensitivity')
         plt.legend(loc='lower right')
-        plt.title('FROC performance - %s - %s' % (CADSystemName, ethnicity))
+        plt.title('FROC performance - %s - %s' % (CADSystemName, filter))
         
         if bLogPlot:
             plt.xscale('log', base=2)
-            ax.xaxis.set_major_formatter(FixedFormatter([0.125,0.25,0.5,1,2,4,8]))
+            ax.xaxis.set_major_formatter(FixedFormatter([0.125,0.25,0.5,1,2,4,8,16,32,64,128]))
         
         # set your ticks manually
-        ax.xaxis.set_ticks([0.125,0.25,0.5,1,2,4,8])
+        ax.xaxis.set_ticks([0.125,0.25,0.5,1,2,4,8,16,32,64,128])
         ax.yaxis.set_ticks(np.arange(0, 1.1, 0.1))
         plt.grid(visible=True, which='both')
         plt.tight_layout()
 
         plt.savefig(os.path.join(outputDir, "froc_%s.png" % CADSystemName), bbox_inches=0, dpi=300)
 
-    return (fps, sens, thresholds, fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up)
+    return (fps, sens, thresholds, fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up, fps_itp, sens_itp)
     
 def getNodule(annotation, header, state = ""):
     nodule = NoduleFinding()
@@ -580,7 +579,7 @@ def collect(annotations_filename,annotations_excluded_filename,seriesuids_filena
     return (allNodules, seriesUIDs)
     
     
-def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,seriesuids_filename,results_filename,outputDir, ethnicity):
+def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,seriesuids_filename,results_filename,outputDir, filter):
     '''
     function to load annotations and evaluate a CAD algorithm
     @param annotations_filename: list of annotations
@@ -594,7 +593,7 @@ def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,serie
     
     (allNodules, seriesUIDs) = collect(annotations_filename, annotations_excluded_filename, seriesuids_filename)
     
-    evaluateCAD(seriesUIDs,
+    (fps, sens, thresholds, fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up, fps_itp, sens_itp) = evaluateCAD(seriesUIDs,
                 results_filename,
                 outputDir,
                 allNodules,
@@ -603,8 +602,9 @@ def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,serie
                 performBootstrapping=bPerformBootstrapping,
                 numberOfBootstrapSamples=bNumberOfBootstrapSamples,
                 confidence=bConfidence,
-                ethnicity=ethnicity)
+                filter=filter)
 
+    return fps_itp, sens_itp
 
 if __name__ == '__main__':
 
@@ -615,12 +615,12 @@ if __name__ == '__main__':
     #results_filename              = sys.argv[4]
     #outputDir                     = sys.argv[5]
 
-    annotations_filename          = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/grt123/all/nodule_annotations.csv'
-    annotations_excluded_filename = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/grt123/all/nodule_exclude_annotations.csv'
-    seriesuids_filename           = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/grt123/all/scanslist.csv'
-    results_filename              = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/grt123/all/predictions.csv'
-    outputDir                     = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/grt123/all/results'
+    annotations_filename          = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/nodule_annotations.csv'
+    annotations_excluded_filename = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/nodule_exclude_annotations.csv'
+    seriesuids_filename           = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/scanslist.csv'
+    results_filename              = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/predictions.csv'
+    outputDir                     = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/results'
 
     # execute only if run as a script
-    noduleCADEvaluation(annotations_filename, annotations_excluded_filename, seriesuids_filename, results_filename, outputDir)
+    noduleCADEvaluation(annotations_filename, annotations_excluded_filename, seriesuids_filename, results_filename, outputDir, 'filter_None')
     print("Finished!")

@@ -201,7 +201,7 @@ def collate_metadata(mhd_path):
 
                             if key == 'TransformMatrix':
                                 try:
-                                    md[key]=np.array(val.split(' '),int).reshape([3,3])
+                                    md[key]=np.array(val.split(' '),float).reshape([3,3])
                                 except Exception as err:
                                     print(f'Error: {err}, {fil}, transformation matrix')
                                     md[key] = pd.NA
