@@ -202,8 +202,8 @@ def collate_metadata(mhd_path):
                             if key == 'TransformMatrix':
                                 try:
                                     md[key]=np.array(val.split(' '),int).reshape([3,3])
-                                except:
-                                    print(f'error: {fil}, transformation matrix')
+                                except Exception as err:
+                                    print(f'Error: {err}, {fil}, transformation matrix')
                                     md[key] = pd.NA
 
                             if key in ['Offset', 'CenterOfRotation', 'ElementSpacing', 'DimSize']:
@@ -214,10 +214,10 @@ def collate_metadata(mhd_path):
     df = pd.DataFrame.from_dict(metadata, orient='index').reset_index()
 
     df['scan_id'] = df['index'].str.split('/').str[-1]
-    df['StudyId'] = md['scan_id'].str.split('_').str[0]
-    df[['x-offset', 'y-offset', 'z-offset']] = md.Offset.to_list()
-    df[['x-spacing', 'y-spacing','z-spacing']] = md.ElementSpacing.to_list()
-    df[['x-pixels', 'y-pixels', 'slices']] = md.DimSize.to_list()
+    df['StudyId'] = df['scan_id'].str.split('_').str[0]
+    df[['x-offset', 'y-offset', 'z-offset']] = df.Offset.to_list()
+    df[['x-spacing', 'y-spacing','z-spacing']] = df.ElementSpacing.to_list()
+    df[['x-pixels', 'y-pixels', 'slices']] = df.DimSize.to_list()
     df.to_csv(os.path.join(mhd_path, 'metadata.csv'))
 
 if __name__ == '__main__':
