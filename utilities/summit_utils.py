@@ -106,7 +106,6 @@ def baseline_algorithm(row):
 
     return 'ERROR-4'
 
-
 def extract_nodules(prep_path: str, output_path: str, scan_id : str, 
                     ircd : Ircd, nodule_type : str, nodule_site : str):
     
@@ -134,7 +133,6 @@ def extract_nodules(prep_path: str, output_path: str, scan_id : str,
         return True
     else:
         return False
-
 
 def collate_missed_nodule_images(metadata_path, misses_path, prep_result_path, output_path):
 
@@ -174,6 +172,53 @@ def collate_missed_nodule_images(metadata_path, misses_path, prep_result_path, o
         #except Exception as err:
         #    print(f'Error processing nodule id: {idx}, error: {err}')
 
+def collate_metadata(mhd_path):
+    """
+    Collates all of the metadata for a particular reconstruction and saves as 
+    a csv file at root of the reconstruction project store on the CS cluster
+    """
+    metadata = {}
+    for root, _, files in os.walk(mhd_path):
+        for fil in files:
+            if fil.endswith('.mhd'):
+
+                md = {}
+                with open(os.path.join(root, fil),'r') as f:
+                    contents = f.read().split('\n')
+                    
+                    for attr in contents:
+                        if attr:
+                            key, val = attr.split(' = ')
+
+                            if key in ['ObjectType','AnatomicalOrientation','ElementType']:
+                                md[key]=val
+
+                            if key == 'NDims':
+                                md[key]=int(val)
+
+                            if key in ['BinaryData', 'BinaryDataByteOrderMSB', 'CompressedData']:
+                                md[key]=(val=='True')
+
+                            if key == 'TransformMatrix':
+                                try:
+                                    md[key]=np.array(val.split(' '),int).reshape([3,3])
+                                except:
+                                    print(f'error: {fil}, transformation matrix')
+                                    md[key] = pd.NA
+
+                            if key in ['Offset', 'CenterOfRotation', 'ElementSpacing', 'DimSize']:
+                                md[key]=np.array(val.split(' '), np.float64)
+
+                    metadata[os.path.join(root, fil)] = md
+
+    df = pd.DataFrame.from_dict(metadata, orient='index').reset_index()
+
+    df['scan_id'] = df['index'].str.split('/').str[-1]
+    df['StudyId'] = md['scan_id'].str.split('_').str[0]
+    df[['x-offset', 'y-offset', 'z-offset']] = md.Offset.to_list()
+    df[['x-spacing', 'y-spacing','z-spacing']] = md.ElementSpacing.to_list()
+    df[['x-pixels', 'y-pixels', 'slices']] = md.DimSize.to_list()
+    df.to_csv(os.path.join(mhd_path, 'metadata.csv'))
 
 if __name__ == '__main__':
 
@@ -189,3 +234,7 @@ if __name__ == '__main__':
                                      misses_path=misses_path,
                                      prep_result_path=prep_path,
                                      output_path=output_path)
+        
+    if action == 'collate_metadata':
+            mhd_path       = sys.argv[2]
+            collate_metadata(mhd_path)
