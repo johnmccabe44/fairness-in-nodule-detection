@@ -72,6 +72,13 @@ def main():
         help="whether to print verbose detail during training, recommand True when you are not sure about hyper-parameters",
     )
     parser.add_argument(
+        "-b",
+        "--batch-size",
+        default=1,
+        type=int,
+        help="Batch size",
+    )    
+    parser.add_argument(
         "-g",
         "--gpus",
         default=1,
@@ -123,7 +130,7 @@ def main():
         setattr(args, k, v)
 
 
-    print(f'Number of gpus:{args.gpus}, batch size: {args.gpus * 2}, args.workers: {args.workers}', flush=True)
+    print(f'Number of gpus:{args.gpus}, batch size: {args.batch_size}, args.workers: {args.workers}', flush=True)
 
     # 1. define transform
     intensity_transform = ScaleIntensityRanged(
@@ -170,7 +177,7 @@ def main():
     )
     train_loader = DataLoader(
         train_ds,
-        batch_size=args.gpus * 2,
+        batch_size=args.batch_size,
         shuffle=True,
         num_workers=args.workers,
         pin_memory=torch.cuda.is_available(),
