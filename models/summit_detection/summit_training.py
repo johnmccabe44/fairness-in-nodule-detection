@@ -60,6 +60,11 @@ def main():
         help="config json file that stores hyper-parameters",
     )
     parser.add_argument(
+        "-d",
+        "--data-base-dir",
+        help="base folder where niftis are stored",
+    )    
+    parser.add_argument(
         "-v",
         "--verbose",
         default=False,
