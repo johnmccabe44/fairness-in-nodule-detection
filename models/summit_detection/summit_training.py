@@ -118,7 +118,7 @@ def main():
         setattr(args, k, v)
 
 
-    print(f'Number of gpus:{args.gpus}, batch size: {args.gpus * 2}, args.workers: {args.workers}')
+    print(f'Number of gpus:{args.gpus}, batch size: {args.gpus * 2}, args.workers: {args.workers}', flush=True)
 
     # 1. define transform
     intensity_transform = ScaleIntensityRanged(
@@ -293,8 +293,8 @@ def main():
     w_cls = config_dict.get("w_cls", 1.0)  # weight between classification loss and box regression loss, default 1.0
     for epoch in range(start_epoch, max_epochs):
         # ------------- Training -------------
-        print("-" * 10)
-        print(f"epoch {epoch + 1}/{max_epochs}")
+        print("-" * 10, flush=True)
+        print(f"epoch {epoch + 1}/{max_epochs}", flush=True)
         detector.train()
         epoch_loss = 0
         epoch_cls_loss = 0
@@ -337,11 +337,11 @@ def main():
             epoch_loss += loss.detach().item()
             epoch_cls_loss += outputs[detector.cls_key].detach().item()
             epoch_box_reg_loss += outputs[detector.box_reg_key].detach().item()
-            print(f"{step}/{epoch_len}, train_loss: {loss.item():.4f}")
+            print(f"{step}/{epoch_len}, train_loss: {loss.item():.4f}", flush=True)
             tensorboard_writer.add_scalar("train_loss", loss.detach().item(), epoch_len * epoch + step)
 
         end_time = time.time()
-        print(f"Training time: {end_time-start_time}s")
+        print(f"Training time: {end_time-start_time}s", flush=True)
         del inputs, batch_data
         torch.cuda.empty_cache()
         gc.collect()
@@ -350,7 +350,7 @@ def main():
         epoch_loss /= step
         epoch_cls_loss /= step
         epoch_box_reg_loss /= step
-        print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
+        print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}", flush=True)
         tensorboard_writer.add_scalar("avg_train_loss", epoch_loss, epoch + 1)
         tensorboard_writer.add_scalar("avg_train_cls_loss", epoch_cls_loss, epoch + 1)
         tensorboard_writer.add_scalar("avg_train_box_reg_loss", epoch_box_reg_loss, epoch + 1)
@@ -358,7 +358,7 @@ def main():
 
         # save last trained model
         torch.jit.save(detector.network.module, env_dict["model_path"][:-3] + "_last.pt")
-        print("saved last model")
+        print("saved last model", flush=True)
 
         # ------------- Validation for model selection -------------
         if (epoch + 1) % val_interval == 0:
@@ -386,7 +386,7 @@ def main():
                     val_targets_all += val_data
 
             end_time = time.time()
-            print(f"Validation time: {end_time-start_time}s")
+            print(f"Validation time: {end_time-start_time}s", flush=True)
 
             # visualize an inference image and boxes to tensorboard
             draw_img = visualize_one_xy_slice_in_3d_image(
@@ -417,7 +417,7 @@ def main():
                 ],
             )
             val_epoch_metric_dict = coco_metric(results_metric)[0]
-            print(val_epoch_metric_dict)
+            print(val_epoch_metric_dict, flush=True)
 
             # write to tensorboard event
             for k in val_epoch_metric_dict.keys():
@@ -431,15 +431,15 @@ def main():
                 best_val_epoch_metric = val_epoch_metric
                 best_val_epoch = epoch + 1
                 torch.jit.save(detector.network, env_dict["model_path"])
-                print("saved new best metric model")
+                print("saved new best metric model", flush=True)
             print(
                 "current epoch: {} current metric: {:.4f} "
                 "best metric: {:.4f} at epoch {}".format(
                     epoch + 1, val_epoch_metric, best_val_epoch_metric, best_val_epoch
-                )
+                ), flush=True
             )
 
-    print(f"train completed, best_metric: {best_val_epoch_metric:.4f} " f"at epoch: {best_val_epoch}")
+    print(f"train completed, best_metric: {best_val_epoch_metric:.4f} " f"at epoch: {best_val_epoch}", flush=True)
     tensorboard_writer.close()
 
 
