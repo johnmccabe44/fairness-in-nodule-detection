@@ -367,7 +367,7 @@ def main():
         tensorboard_writer.add_scalar("train_lr", optimizer.param_groups[0]["lr"], epoch + 1)
 
         # save last trained model
-        torch.jit.save(detector.network.module, env_dict["model_path"][:-3] + "_last.pt")
+        torch.jit.save(detector.network, env_dict["model_path"][:-3] + "_last.pt")
         print("saved last model", flush=True)
 
         # ------------- Validation for model selection -------------
