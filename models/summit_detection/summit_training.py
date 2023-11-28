@@ -248,8 +248,6 @@ def main():
 
     # 3) build detector
     detector = RetinaNetDetector(network=net, anchor_generator=anchor_generator, debug=args.verbose).to(device)
-    if device.type == 'cuda':
-        detector.network = DataParallel(detector.network)
 
     # set training components
     detector.set_atss_matcher(num_candidates=4, center_in_gt=False)
