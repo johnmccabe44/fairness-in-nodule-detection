@@ -145,9 +145,6 @@ def main():
         start_time = time.time()
         for inference_data in inference_loader:
             try:
-                print(inference_data.keys(), flush=True)
-                if 'image' in inference_data.keys():
-                    print(inference_data['image'], flush=True)
 
                 inference_img_filenames = [
                     inference_data_i["image_meta_dict"]["filename_or_obj"] for inference_data_i in inference_data
