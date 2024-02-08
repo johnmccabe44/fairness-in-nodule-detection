@@ -13,9 +13,6 @@ def main(name, cache_path, metadata_path, output_path):
     
     dataset_json = {'training' : [], 'validation' : [], 'test' : []}
 
-    # Create the output path
-    output_path = Path(output_path, name)
-
     i = j = 0
     first = True
     for data_split in dataset_json.keys():
@@ -47,6 +44,9 @@ def main(name, cache_path, metadata_path, output_path):
             dataset_json[data_split].append(scan_item)
             i += 1
 
+
+    # Create the output path
+    output_path = Path(output_path, 'mhd_original').mkdir(parents=True, exist_ok=True)
     with open(Path(output_path, 'mhd_original', f'dataset_{name}.json'),'w') as f:
         json.dump(dataset_json, f, indent=4)
 
