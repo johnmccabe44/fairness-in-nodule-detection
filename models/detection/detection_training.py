@@ -172,7 +172,7 @@ def main():
         base_dir=args.data_base_dir,
     )
     train_ds = Dataset(
-        data=train_data[: int(0.95 * len(train_data))],
+        data=train_data,
         transform=train_transforms,
     )
     train_loader = DataLoader(
@@ -186,8 +186,15 @@ def main():
     )
 
     # create a validation data loader
+    val_data = load_decathlon_datalist(
+        args.data_list_file_path,
+        is_segmentation=True,
+        data_list_key="validation",
+        base_dir=args.data_base_dir,
+    )
+
     val_ds = Dataset(
-        data=train_data[int(0.95 * len(train_data)) :],
+        data=val_data,
         transform=val_transforms,
     )
     val_loader = DataLoader(
