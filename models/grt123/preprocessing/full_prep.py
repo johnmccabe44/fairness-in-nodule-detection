@@ -73,13 +73,13 @@ def savenpy(id, filelist, prep_folder, data_path, use_existing=True, metadata_pa
 
         if metadata_path:
             metadata = pandas.read_csv(metadata_path)[[
-                'main_participant_id',
+                'participant_id',
                 'nodule_x_coordinate',
                 'nodule_y_coordinate',
                 'nodule_z_coordinate',
                 'nodule_diameter_mm'
             ]]
-            metadata = metadata[metadata.main_participant_id==name.split('_',1)[0]]
+            metadata = metadata[metadata.participant_id==name.split('_',1)[0]]
             label = metadata.to_numpy()
             label = label[:,[3, 1, 2, 4]].astype('float')
         else:
@@ -177,7 +177,7 @@ def savenpy_summit(id, scanpath_list, prep_folder, use_existing=True, metadata_p
                 'nodule_z_coordinate',
                 'nodule_diameter_mm'
             ]]
-            metadata = metadata[metadata.main_participant_id==name.split('_',1)[0]]
+            metadata = metadata[metadata.participant_id==name.split('_',1)[0]]
             label = metadata.to_numpy()
             label = label[:,[3, 1, 2, 4]].astype('float')
         else:
