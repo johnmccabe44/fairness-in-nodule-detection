@@ -50,7 +50,7 @@ def main(name, cache_path, metadata_path, output_path):
     with open(Path(output_path, 'mhd_original', f'dataset_{name}.json'),'w') as f:
         json.dump(dataset_json, f, indent=4)
 
-    with open(Path(output_path, f'dataset_{name}.json', 'w') as f:
+    with open(Path(output_path, f'dataset_{name}.json'), 'w') as f:
         json.dump(json.loads(json.dumps(dataset_json).replace('.mhd','.nii.gz')),f,indent=4)
 
 if __name__ == '__main__':
