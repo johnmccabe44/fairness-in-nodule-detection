@@ -11,9 +11,9 @@ import json
 
 def main(cache_path, metadata_path):
     
-    data_splits = ['training','validation']
-    summit_subset = {'training' : [], 'validation' : []}
-    summit_datasplits = {'training' : [], 'validation' : []}
+    data_splits = ['training','validation', 'test' : []]
+    summit_subset = {'training' : [], 'validation' : [], 'test' : []}
+    summit_datasplits = {'training' : [], 'validation' : [], 'test' : []}
 
     i = j = 0
     first = True
@@ -31,7 +31,7 @@ def main(cache_path, metadata_path):
                 'label' : []
             }
 
-            for idx, row in metadata[metadata.main_participant_id==study_id].iterrows():
+            for idx, row in metadata[metadata.participant_id==study_id].iterrows():
                 scan_item['box'].append(
                     [
                         row.nodule_x_coordinate,
@@ -46,22 +46,11 @@ def main(cache_path, metadata_path):
             summit_datasplits[data_split].append(scan_item)
             i += 1
 
-            if not Path(cache_path,scan_item['image'].replace('mhd','nii.gz')).exists():
-                summit_subset[data_split].append(scan_item)
-                j+= 1
-
-    with open('SUMMIT_datasplit/mhd_original/dataset_fold0.json','w') as f:
+    with open(f'datasplits/SUMMIT/{name}/mhd_original/dataset_fold0.json','w') as f:
         json.dump(summit_datasplits, f, indent=4)
 
-    with open('SUMMIT_datasplit/dataset_fold0.json', 'w') as f:
+    with open(f'datasplits/SUMMIT/{name}/dataset_fold0.json', 'w') as f:
         json.dump(json.loads(json.dumps(summit_datasplits).replace('.mhd','.nii.gz')),f,indent=4)
-
-    with open('SUMMIT_datasplit/mhd_original/dataset_fold0_subset.json','w') as f:
-        json.dump(summit_subset, f)
-
-    with open('SUMMIT_datasplit/dataset_fold0_subset.json', 'w') as f:
-        json.dump(json.loads(json.dumps(summit_subset).replace('.mhd','.nii.gz')),f,indent=4)
-
 
 if __name__ == '__main__':
 
