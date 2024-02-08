@@ -9,15 +9,16 @@ from pathlib import Path
 import json
 
 
-def main(cache_path, metadata_path):
+def main(name, cache_path, metadata_path, output_path):
     
-    data_splits = ['training','validation', 'test' : []]
-    summit_subset = {'training' : [], 'validation' : [], 'test' : []}
-    summit_datasplits = {'training' : [], 'validation' : [], 'test' : []}
+    dataset_json = {'training' : [], 'validation' : [], 'test' : []}
+
+    # Create the output path
+    output_path = Path(output_path, name)
 
     i = j = 0
     first = True
-    for data_split in data_splits:
+    for data_split in dataset_json.keys():
 
         scans = pd.read_csv(Path(metadata_path, data_split + '_scans.csv'))
         metadata = pd.read_csv(Path(metadata_path, data_split + '_metadata.csv'))
@@ -43,18 +44,22 @@ def main(cache_path, metadata_path):
                     ])
                 scan_item['label'].append(0)
 
-            summit_datasplits[data_split].append(scan_item)
+            dataset_json[data_split].append(scan_item)
             i += 1
 
-    with open(f'datasplits/SUMMIT/{name}/mhd_original/dataset_fold0.json','w') as f:
-        json.dump(summit_datasplits, f, indent=4)
+    with open(Path(output_path, 'mhd_original', f'dataset_{name}.json'),'w') as f:
+        json.dump(dataset_json, f, indent=4)
 
-    with open(f'datasplits/SUMMIT/{name}/dataset_fold0.json', 'w') as f:
-        json.dump(json.loads(json.dumps(summit_datasplits).replace('.mhd','.nii.gz')),f,indent=4)
+    with open(Path(output_path, f'dataset_{name}.json', 'w') as f:
+        json.dump(json.loads(json.dumps(dataset_json).replace('.mhd','.nii.gz')),f,indent=4)
 
 if __name__ == '__main__':
 
-    cache_path      = sys.argv[1]
-    metadata_path   = sys.argv[2]
+    name            = sys.argv[1]  
+    cache_path      = sys.argv[2]
+    metadata_path   = sys.argv[3]
+    output_path     = sys.argv[4]
 
-    main(cache_path, metadata_path)
+
+
+    main(name, cache_path, metadata_path, output_path)
