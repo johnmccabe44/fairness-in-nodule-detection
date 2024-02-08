@@ -28,7 +28,7 @@ def main(name, cache_path, metadata_path, output_path):
         for scan_id in scans.scan_id.tolist():
             study_id = scan_id.split('_',1)[0]
 
-            if Path(cache_path, study_id, f'{scan_id}.mhd').exists():
+            if Path(cache_path, study_id, f'{scan_id}.nii.gz').exists():
 
                 scan_item = {
                     'box' : [], 
