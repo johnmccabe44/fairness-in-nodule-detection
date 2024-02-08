@@ -1,10 +1,7 @@
-.DS_Store
-.vscode
-copy_from_server.sh
-copy_to_server.sh
-launch.json
-models/summit_detection/SUMMIT_datasplit/dataset_fold0.json
-models/summit_detection/SUMMIT_datasplit/dataset_fold0_subset.json
-models/summit_detection/SUMMIT_datasplit/dataset_fold0.json
-models/summit_detection/SUMMIT_datasplit/mhd_original/dataset_fold0_subset.json
-models/summit_detection/SUMMIT_datasplit/mhd_original/dataset_fold0.json
+*
+
+!*/
+!*.py
+!*.ipynb
+!*.md
+!requirements.txt
