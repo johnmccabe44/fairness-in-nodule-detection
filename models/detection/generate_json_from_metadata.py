@@ -46,7 +46,8 @@ def main(name, cache_path, metadata_path, output_path):
 
 
     # Create the output path
-    output_path = Path(output_path, 'mhd_original').mkdir(parents=True, exist_ok=True)
+    output_path = Path(output_path, name)
+    Path(output_path, 'mhd_original').mkdir(parents=True, exist_ok=True)
     with open(Path(output_path, 'mhd_original', f'dataset_{name}.json'),'w') as f:
         json.dump(dataset_json, f, indent=4)
 
