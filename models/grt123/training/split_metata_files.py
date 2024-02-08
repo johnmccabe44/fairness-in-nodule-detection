@@ -1,5 +1,6 @@
 import pandas as pd
 import argparse
+import os
 
 def split_file(input_file, output_path, output_prefix, n):
     # Read the input file into a pandas DataFrame
