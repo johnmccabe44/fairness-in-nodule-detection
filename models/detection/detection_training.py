@@ -152,7 +152,7 @@ def main():
         setattr(args, k, v)
 
 
-    print(f'Number of gpus:{args.gpus}, batch size: {args.batch_size}, args.workers: {args.workers}', flush=True)
+    logger.info(f'Number of gpus:{args.gpus}, batch size: {args.batch_size}, args.workers: {args.workers}')
 
     # 1. define transform
     intensity_transform = ScaleIntensityRanged(
@@ -398,7 +398,7 @@ def main():
 
         # save last trained model
         torch.jit.save(detector.network, env_dict["model_path"][:-3] + "_last.pt")
-        logger.info("saved last model", flush=True)
+        logger.info("saved last model")
 
         # ------------- Validation for model selection -------------
         if (epoch + 1) % val_interval == 0:
@@ -426,7 +426,7 @@ def main():
                     val_targets_all += val_data
 
             end_time = time.time()
-            logger.info(f"Validation time: {end_time-start_time}s", flush=True)
+            logger.info(f"Validation time: {end_time-start_time}s")
 
             # visualize an inference image and boxes to tensorboard
             draw_img = visualize_one_xy_slice_in_3d_image(
