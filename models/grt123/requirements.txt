@@ -1,0 +1,7 @@
+h5py==3.1.0
+matplotlib==3.4.2
+numpy==1.26.1
+pyparsing==2.4.7
+scikit-image==0.22.0
+scipy==1.11.3
+SimpleITK==2.2.1
