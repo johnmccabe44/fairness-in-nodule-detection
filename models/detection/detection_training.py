@@ -10,6 +10,7 @@
 # limitations under the License.
 
 import argparse
+import datetime
 import gc
 import json
 import logging
@@ -44,6 +45,16 @@ from monai.networks.nets import resnet
 from monai.transforms import ScaleIntensityRanged
 from monai.utils import set_determinism
 
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s.%(msecs)03d][%(levelname)5s](%(name)s) - %(message)s",
+    handlers=[
+        logging.FileHandler(f"train_{datetime.datetime.now().strftime('%Y-%m-%d')}.log"),
+        logging.StreamHandler(sys.stdout)
+        ]
+)
 
 def main():
     parser = argparse.ArgumentParser(description="PyTorch Object Detection Training")
