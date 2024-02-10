@@ -82,9 +82,10 @@ class DataBowl3Detector(Dataset):
                             self.bboxes+=[[np.concatenate([[i],t])]]*4
             try:
                 self.bboxes = np.concatenate(self.bboxes,axis = 0)
+
             except ValueError as verr:
-                print(f'Error: {idcs[i]} has no diameter >= 5, bbox: {labels[i]}', flush=True)
-                raise
+                print(f'Error: {idx} has no diameter >= {sizelim}, bbox: {labels}', flush=True)
+                self.bboxes = np.array([[0,0,0,0,0]])
 
         self.crop = Crop(config)
         self.label_mapping = LabelMapping(config, self.phase)
