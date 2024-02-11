@@ -12,14 +12,6 @@ from scipy.ndimage.interpolation import rotate
 
 class DataBowl3Detector(Dataset):
     def __init__(self, data_dir, scan_list, config, phase = 'train',split_comber=None):
-
-        def filterbysize(scan_id, lbl, size=1):
-            filtered_lbl = lbl[lbl[:,3]>size]
-
-            if filtered_lbl.shape[0] == 0:
-                return np.array([[0,0,0,0]])
-            else:
-                return filtered_lbl
             
         assert(phase == 'train' or phase == 'val' or phase == 'test')
         self.phase = phase
@@ -65,8 +57,6 @@ class DataBowl3Detector(Dataset):
             self.bboxes = []
             for i, l in enumerate(labels):
 
-                print(i, l, sizelim)
-
                 if len(l) > 0 :
                     for t in l:
                         if t[3]>sizelim:
@@ -76,11 +66,10 @@ class DataBowl3Detector(Dataset):
                         if t[3]>sizelim3:
                             self.bboxes+=[[np.concatenate([[i],t])]]*4
 
+            print(self.phase, len(self.bboxes), flush=True)
+            print(self.bboxes[:10], flush=True)
 
-                        print(i, l, sizelim, np.array(self.bboxes).shape)
-
-            self.bboxes = np.concatenate(self.bboxes,axis = 0)
-
+            self.bboxes = np.concatenate(self.bboxes, axis=0)
 
         self.crop = Crop(config)
         self.label_mapping = LabelMapping(config, self.phase)
