@@ -77,7 +77,7 @@ class DataBowl3Detector(Dataset):
                             self.bboxes+=[[np.concatenate([[i],t])]]*4
 
 
-                        print(i, l, sizelim, self.bboxes.shape)
+                        print(i, l, sizelim, np.array(self.bboxes).shape)
 
             self.bboxes = np.concatenate(self.bboxes,axis = 0)
 
