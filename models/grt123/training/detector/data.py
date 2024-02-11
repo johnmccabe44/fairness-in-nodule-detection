@@ -64,6 +64,9 @@ class DataBowl3Detector(Dataset):
         if self.phase != 'test':
             self.bboxes = []
             for i, l in enumerate(labels):
+
+                print(i, l, sizelim)
+
                 if len(l) > 0 :
                     for t in l:
                         if t[3]>sizelim:
@@ -72,6 +75,10 @@ class DataBowl3Detector(Dataset):
                             self.bboxes+=[[np.concatenate([[i],t])]]*2
                         if t[3]>sizelim3:
                             self.bboxes+=[[np.concatenate([[i],t])]]*4
+
+
+                        print(i, l, sizelim, self.bboxes.shape)
+
             self.bboxes = np.concatenate(self.bboxes,axis = 0)
 
 
