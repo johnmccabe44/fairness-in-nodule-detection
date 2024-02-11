@@ -13,8 +13,8 @@ from scipy.ndimage.interpolation import rotate
 class DataBowl3Detector(Dataset):
     def __init__(self, data_dir, scan_list, config, phase = 'train',split_comber=None):
 
-        def filterbysize(scan_id, lbl, size=5):
-            filtered_lbl = lbl[lbl[:,3]>=size]
+        def filterbysize(scan_id, lbl, size=1):
+            filtered_lbl = lbl[lbl[:,3]>size]
 
             if filtered_lbl.shape[0] == 0:
                 return np.array([[0,0,0,0]])
@@ -55,18 +55,10 @@ class DataBowl3Detector(Dataset):
         labels = []
         
         for idx in idcs:
-
-            try:
-                l = np.load(os.path.join(data_dir, '%s_label.npy' %idx))
-            except:
-                print(f'Error loading file:{idx}', flush=True)
-                l = np.array([[0,0,0,0]])
-
-            fl = filterbysize(idx, l)
-                      
-            if np.all(fl==0):
-                fl=np.array([])
-            labels.append(fl)
+            l = np.load(os.path.join(data_dir, '%s_label.npy' %idx))
+            if np.all(l==0):
+                l=np.array([])
+            labels.append(l)
 
         self.sample_bboxes = labels
         if self.phase != 'test':
@@ -74,18 +66,14 @@ class DataBowl3Detector(Dataset):
             for i, l in enumerate(labels):
                 if len(l) > 0 :
                     for t in l:
-                        if t[3]>=sizelim:
+                        if t[3]>sizelim:
                             self.bboxes.append([np.concatenate([[i],t])])
                         if t[3]>sizelim2:
                             self.bboxes+=[[np.concatenate([[i],t])]]*2
                         if t[3]>sizelim3:
                             self.bboxes+=[[np.concatenate([[i],t])]]*4
-            try:
-                self.bboxes = np.concatenate(self.bboxes,axis = 0)
+            self.bboxes = np.concatenate(self.bboxes,axis = 0)
 
-            except ValueError as verr:
-                print(f'Error: {idx} has no diameter >= {sizelim}, bbox: {labels}', flush=True)
-                self.bboxes = np.array([[0,0,0,0,0]])
 
         self.crop = Crop(config)
         self.label_mapping = LabelMapping(config, self.phase)
