@@ -45,27 +45,14 @@ from monai.networks.nets import resnet
 from monai.transforms import ScaleIntensityRanged
 from monai.utils import set_determinism
 
-
-# Create a logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-# Create a formatter
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-
-# Create a handler for console output
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)  # Set the desired logging level for console output
-console_handler.setFormatter(formatter)
-
-# Create a handler for writing to a file
-file_handler = logging.FileHandler(f'detection_training_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log')
-file_handler.setLevel(logging.DEBUG)  # Set the desired logging level for the log file
-file_handler.setFormatter(formatter)
-
-# Add the handlers to the logger
-logger.addHandler(console_handler)
-logger.addHandler(file_handler)
+# Configure logging to write logs to file
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 
 def main():
     parser = argparse.ArgumentParser(description="PyTorch Object Detection Training")
@@ -327,7 +314,7 @@ def main():
     best_val_epoch_metric = 0.0
     best_val_epoch = -1  # the epoch that gives best validation metrics
 
-    max_epochs = 300
+    max_epochs = 100
     epoch_len = len(train_ds) // train_loader.batch_size
     w_cls = config_dict.get("w_cls", 1.0)  # weight between classification loss and box regression loss, default 1.0
     for epoch in range(start_epoch, max_epochs):
