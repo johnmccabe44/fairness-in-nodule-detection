@@ -109,6 +109,13 @@ def main():
         help="whether to restart from previous training",
     )
     parser.add_argument(
+        "-r",
+        "--resume-model-path",
+        default=False,
+        type=str,
+        help="Path to model to resume from",
+    )
+    parser.add_argument(
         "-s",
         "--start-epoch",
         default=0,
@@ -230,7 +237,7 @@ def main():
     # 2) build network
     if args.resume:
         start_epoch = args.start_epoch
-        net = torch.jit.load(args.model_path)
+        net = torch.jit.load(args.resume_model_path)
         
     else:
         start_epoch = 0
