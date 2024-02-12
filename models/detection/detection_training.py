@@ -109,7 +109,7 @@ def main():
         help="whether to restart from previous training",
     )
     parser.add_argument(
-        "-r",
+        "-m",
         "--resume-model-path",
         default=False,
         type=str,
