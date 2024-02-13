@@ -196,7 +196,7 @@ def main():
         batch_size=args.batch_size,
         shuffle=True,
         num_workers=args.workers,
-        pin_memory=false,
+        pin_memory=False,
         collate_fn=no_collation,
         persistent_workers=True,
     )
@@ -217,7 +217,7 @@ def main():
         val_ds,
         batch_size=1,
         num_workers=2,
-        pin_memory=false,
+        pin_memory=False,
         collate_fn=no_collation,
         persistent_workers=True,
     )
