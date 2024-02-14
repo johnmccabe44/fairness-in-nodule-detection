@@ -134,21 +134,21 @@ def main(datapath, prep_result_path, bbox_result_path, n_gpu, n_worker_preproces
     if run_prepare:
 
         if summit:
-            testsplit = full_prep_summit(data_path=datapath,
+            _ = full_prep_summit(data_path=datapath,
                                         prep_folder=prep_result_path,
                                         scanlist_path=scanlist_path,
                                         n_worker=n_worker_preprocessing,
                                         use_existing=use_exsiting_preprocessing,
                                         metadata_path=metadata_path)
         else:
-            testsplit = full_prep(datapath,
+            _ = full_prep(datapath,
                                 prep_result_path,
                                 n_worker=n_worker_preprocessing,
                                 use_existing=use_exsiting_preprocessing,
                                 metadata_path=metadata_path)
 
     else:
-        testsplit = os.listdir(datapath)
+        _ = [mhd for mhd in os.listdir(datapath) if mhd.endswith('.mhd')]
 
 
     testsplit = [
@@ -185,7 +185,11 @@ def main(datapath, prep_result_path, bbox_result_path, n_gpu, n_worker_preproces
         margin = 32
         sidelen = 144
         config1['datadir'] = prep_result_path
-        split_comber = SplitComb(sidelen,config1['max_stride'],config1['stride'],margin,pad_value= config1['pad_value'])
+        split_comber = SplitComb(
+                            sidelen,config1['max_stride'],
+                            config1['stride'],
+                            margin,pad_value= config1['pad_value']
+                        )
 
         dataset = DataBowl3Detector(testsplit,
                                     config1,phase='test',

@@ -12,7 +12,9 @@ from scipy.ndimage.interpolation import zoom
 from scipy.ndimage.morphology import binary_dilation, generate_binary_structure
 from skimage import measure
 from skimage.morphology import convex_hull_image
-from step1 import step1_python, step1_python_summit
+from pathlib import Path
+
+from .step1 import step1_python, step1_python_summit
 
 
 def process_mask(mask):
@@ -159,8 +161,9 @@ def savenpy_summit(id, scanpath_list, prep_folder, use_existing=True, metadata_p
 
     resolution = np.array([1,1,1])
     scan_path = scanpath_list[id]
-    _, name_ext = os.path.split(scan_path)
-    name, ext = name_ext.split('.')
+
+    name = scan_path.stem
+    ext = scan_path.suffix
 
     print(f'Preparing ... {name}', flush=True)
 
@@ -317,26 +320,29 @@ def full_prep_summit(data_path, prep_folder, scanlist_path, n_worker = None, use
     if not os.path.exists(prep_folder):
         os.mkdir(prep_folder)
 
-            
     print('starting preprocessing')
     
+    scan_ids = pandas.read_csv(scanlist_path)['scan_id'].tolist()
 
-    scan_paths = []
-            
-    for scan_id in pandas.read_csv(scanlist_path)['scan_id'].tolist():
-        if os.path.exists(os.path.join(data_path, scan_id.split('_')[0], scan_id+'.mhd')):
-            scan_paths.append(os.path.join(data_path, scan_id.split('_')[0], scan_id+'.mhd'))
-        else:
-            print(f"Scan is not cached:{os.path.join(data_path, scan_id.split('_')[0], scan_id+'.mhd')}", flush=True)
-
-    filelist = [
-        scan_id
-        for scan_id in pandas.read_csv(scanlist_path)['scan_id'].tolist()
-        if os.path.exists(os.path.join(data_path, scan_id.split('_')[0], scan_id+'.mhd'))
+    scan_paths = [
+        scan_path
+        for scan_path in Path(data_path).rglob('*.mhd')
+        if scan_path.is_file() and scan_path.name.replace('.mhd', '') in scan_ids
     ]
 
+    # for scan_id in pandas.read_csv(scanlist_path)['scan_id'].tolist():
+    #     if os.path.exists(os.path.join(data_path, scan_id.split('_')[0], scan_id+'.mhd')):
+    #         scan_paths.append(os.path.join(data_path, scan_id.split('_')[0], scan_id+'.mhd'))
+    #     else:
+    #         print(f"Scan is not cached:{os.path.join(data_path, scan_id.split('_')[0], scan_id+'.mhd')}", flush=True)
 
-    N = len(filelist)
+    # filelist = [
+    #     scan_id
+    #     for scan_id in pandas.read_csv(scanlist_path)['scan_id'].tolist()
+    #     if os.path.exists(os.path.join(data_path, scan_id.split('_')[0], scan_id+'.mhd'))
+    # ]
+
+    N = len(scan_paths)
 
     if n_worker>1:
         pool = Pool(n_worker)
@@ -360,4 +366,4 @@ def full_prep_summit(data_path, prep_folder, scanlist_path, n_worker = None, use
                                metadata_path=metadata_path)
 
     print('end preprocessing')
-    return filelist    
+    return scan_paths    

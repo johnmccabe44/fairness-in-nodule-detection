@@ -197,7 +197,9 @@ def main():
         shuffle = True,
         num_workers = args.workers,
         pin_memory=True)
+    
     print_gpu_stats(device, 'After getting trn ds')
+
     dataset = data.DataBowl3Detector(
         datadir,
         load_scan_list(Path(config_training['metadata_path'] , 'validation_scans.csv')),
@@ -209,7 +211,9 @@ def main():
         shuffle = False,
         num_workers = args.workers,
         pin_memory=True)
+    
     print_gpu_stats(device, 'After getting val ds')
+    
     optimizer = torch.optim.SGD(
         net.parameters(),
         args.lr,
