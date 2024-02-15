@@ -58,7 +58,7 @@ def parse_arguments():
                         metavar='N-WORKER-PREPROCESSING',
                         help='Number of workers to preprocess data',
                         type=int,
-                        default=8)
+                        default=2)
 
     parser.add_argument('--use-exsiting-preprocessing',
                         help='Use any existing preprocess _clean.npy files',
