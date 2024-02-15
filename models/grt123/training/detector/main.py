@@ -84,7 +84,6 @@ def load_scan_list(path_to_scan_list):
             return [
                 scan_id 
                 for scan_id in f.read().split('\n')
-                if scan_id.startswith('summit')
             ]
 
     return []
