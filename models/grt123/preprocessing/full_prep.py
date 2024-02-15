@@ -66,28 +66,28 @@ def resample(imgs, spacing, new_spacing,order = 2):
 
 def savenpy(id, filelist, prep_folder, data_path, use_existing=True, metadata_path=None):      
     resolution = np.array([1,1,1])
-    name = filelist[id]
+    scan_id = filelist[id]
     if use_existing:
-        if os.path.exists(os.path.join(prep_folder,name+'_label.npy')) and os.path.exists(os.path.join(prep_folder,name+'_clean.npy')):
-            print(name+' had been done')
+        if os.path.exists(os.path.join(prep_folder,scan_id+'_label.npy')) and os.path.exists(os.path.join(prep_folder,scan_id+'_clean.npy')):
+            print(scan_id+' had been done')
             return
     try:
 
         if metadata_path:
             metadata = pandas.read_csv(metadata_path)[[
-                'participant_id',
+                'scan_id',
                 'nodule_x_coordinate',
                 'nodule_y_coordinate',
                 'nodule_z_coordinate',
                 'nodule_diameter_mm'
             ]]
-            metadata = metadata[metadata.participant_id==name.split('_',1)[0]]
+            metadata = metadata[metadata.scan_id==scan_id]
             label = metadata.to_numpy()
             label = label[:,[3, 1, 2, 4]].astype('float')
         else:
             label = []
 
-        im, m1, m2, spacing, origin = step1_python(os.path.join(data_path,name))
+        im, m1, m2, spacing, origin = step1_python(os.path.join(data_path,scan_id))
         Mask = m1+m2
         
         newshape = np.round(np.array(Mask.shape)*spacing/resolution)
@@ -120,7 +120,7 @@ def savenpy(id, filelist, prep_folder, data_path, use_existing=True, metadata_pa
                     extendbox[1,0]:extendbox[1,1],
                     extendbox[2,0]:extendbox[2,1]]
         sliceim = sliceim2[np.newaxis,...]
-        np.save(os.path.join(prep_folder,name+'_clean'),sliceim)
+        np.save(os.path.join(prep_folder,scan_id+'_clean'),sliceim)
 
 
         if len(label)==0:
@@ -151,36 +151,36 @@ def savenpy(id, filelist, prep_folder, data_path, use_existing=True, metadata_pa
             #label2[:3] = label2[:3]-np.expand_dims(extendbox[:,0],1)
             #label2 = label2[:4].T
 
-        np.save(os.path.join(prep_folder,name+'_label'), np.array(labels))
+        np.save(os.path.join(prep_folder,scan_id+'_label'), np.array(labels))
     except:
-        print('bug in '+name)
+        print('bug in '+scan_id)
         raise
-    print(name+' done')
+    print(scan_id+' done')
 
 def savenpy_summit(id, scanpath_list, prep_folder, use_existing=True, metadata_path=None):     
 
     resolution = np.array([1,1,1])
     scan_path = scanpath_list[id]
 
-    name = scan_path.stem
+    scan_id = scan_path.stem
     ext = scan_path.suffix
 
-    print(f'Preparing ... {name}', flush=True)
+    print(f'Preparing ... {scan_id}', flush=True)
 
     if use_existing:
-        if os.path.exists(os.path.join(prep_folder,name+'_label.npy')) and os.path.exists(os.path.join(prep_folder,name+'_clean.npy')):
-            print(name+' had been done')
+        if os.path.exists(os.path.join(prep_folder,scan_id+'_label.npy')) and os.path.exists(os.path.join(prep_folder,scan_id+'_clean.npy')):
+            print(scan_id+' had been done')
             return
     try:
         if metadata_path:
             metadata = pandas.read_csv(metadata_path)[[
-                'participant_id',
+                'scan_id',
                 'nodule_x_coordinate',
                 'nodule_y_coordinate',
                 'nodule_z_coordinate',
                 'nodule_diameter_mm'
             ]]
-            metadata = metadata[metadata.participant_id==name.split('_',1)[0]]
+            metadata = metadata[metadata.scan_id==scan_id]
             label = metadata.to_numpy()
             label = label[:,[3, 1, 2, 4]].astype('float')
         else:
@@ -222,7 +222,7 @@ def savenpy_summit(id, scanpath_list, prep_folder, use_existing=True, metadata_p
                     extendbox[1,0]:extendbox[1,1],
                     extendbox[2,0]:extendbox[2,1]]
         sliceim = sliceim2[np.newaxis,...]
-        np.save(os.path.join(prep_folder,name+'_clean'),sliceim)
+        np.save(os.path.join(prep_folder,scan_id+'_clean'),sliceim)
 
 
         # if len(label)==0:
@@ -262,17 +262,17 @@ def savenpy_summit(id, scanpath_list, prep_folder, use_existing=True, metadata_p
                 labels.append(cri)
 
         try:
-            np.save(os.path.join(prep_folder,name+'_label'), labels)
+            np.save(os.path.join(prep_folder,scan_id+'_label'), labels)
 
         except:
             print('error in saving label', flush=True)
             print(label, flush=False)
-            np.save(os.path.join(prep_folder,name+'_label'), [[0,0,0,0]])
+            np.save(os.path.join(prep_folder,scan_id+'_label'), [[0,0,0,0]])
 
     except Exception as err:
-        print(f'bug in {name}, error:{err.__str__()}')
+        print(f'bug in {scan_id}, error:{err.__str__()}')
 
-    print(name+' done')
+    print(scan_id+' done')
 
     
 def full_prep(data_path,prep_folder,n_worker = None, use_existing=True, metadata_path=None):
