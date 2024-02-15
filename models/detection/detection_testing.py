@@ -88,7 +88,7 @@ def main():
     inference_data = load_decathlon_datalist(
         args.data_list_file_path,
         is_segmentation=True,
-        data_list_key="validation",
+        data_list_key="test",
         base_dir=args.data_base_dir,
     )
     inference_ds = Dataset(
@@ -138,7 +138,7 @@ def main():
     )
 
     # 4. apply trained model
-    results_dict = {"validation": []}
+    results_dict = {"test": []}
     detector.eval()
 
     with torch.no_grad():
