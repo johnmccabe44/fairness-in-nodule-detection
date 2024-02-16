@@ -7,6 +7,7 @@ import numpy as np
 import pandas
 from pathlib import Path
 import SimpleITK as sitk
+from sympy import use
 from config_training import config
 from scipy.io import loadmat
 from scipy.ndimage import zoom
@@ -86,64 +87,73 @@ def lumTrans(img):
     newimg = (newimg*255).astype('uint8')
     return newimg
 
-def savenpy(id,annos,filelist,data_path,prep_folder):        
-    resolution = np.array([1,1,1])
-    name = filelist[id]
-    label = annos[annos[:,0]==name]
-    label = label[:,[3,1,2,4]].astype('float')
-    
-    im, m1, m2, spacing = step1_python(os.path.join(data_path,name))
-    Mask = m1+m2
-    
-    newshape = np.round(np.array(Mask.shape)*spacing/resolution)
-    xx,yy,zz= np.where(Mask)
-    box = np.array([[np.min(xx),np.max(xx)],[np.min(yy),np.max(yy)],[np.min(zz),np.max(zz)]])
-    box = box*np.expand_dims(spacing,1)/np.expand_dims(resolution,1)
-    box = np.floor(box).astype('int')
-    margin = 5
-    extendbox = np.vstack([np.max([[0,0,0],box[:,0]-margin],0),np.min([newshape,box[:,1]+2*margin],axis=0).T]).T
-    extendbox = extendbox.astype('int')
+def savenpy(id,annos,filelist,data_path,prep_folder, use_existing = False):        
 
 
+    try:
 
-    convex_mask = m1
-    dm1 = process_mask(m1)
-    dm2 = process_mask(m2)
-    dilatedMask = dm1+dm2
-    Mask = m1+m2
-    extramask = dilatedMask - Mask
-    bone_thresh = 210
-    pad_value = 170
-    im[np.isnan(im)]=-2000
-    sliceim = lumTrans(im)
-    sliceim = sliceim*dilatedMask+pad_value*(1-dilatedMask).astype('uint8')
-    bones = sliceim*extramask>bone_thresh
-    sliceim[bones] = pad_value
-    sliceim1,_ = resample(sliceim,spacing,resolution,order=1)
-    sliceim2 = sliceim1[extendbox[0,0]:extendbox[0,1],
-                extendbox[1,0]:extendbox[1,1],
-                extendbox[2,0]:extendbox[2,1]]
-    sliceim = sliceim2[np.newaxis,...]
-    np.save(os.path.join(prep_folder,name+'_clean.npy'),sliceim)
+        resolution = np.array([1,1,1])
+        name = filelist[id]
+        label = annos[annos[:,0]==name]
+        label = label[:,[3,1,2,4]].astype('float')
 
-    
-    if len(label)==0:
-        label2 = np.array([[0,0,0,0]])
-    elif len(label[0])==0:
-        label2 = np.array([[0,0,0,0]])
-    elif label[0][0]==0:
-        label2 = np.array([[0,0,0,0]])
-    else:
-        haslabel = 1
-        label2 = np.copy(label).T
-        label2[:3] = label2[:3][[0,2,1]]
-        label2[:3] = label2[:3]*np.expand_dims(spacing,1)/np.expand_dims(resolution,1)
-        label2[3] = label2[3]*spacing[1]/resolution[1]
-        label2[:3] = label2[:3]-np.expand_dims(extendbox[:,0],1)
-        label2 = label2[:4].T
-    np.save(os.path.join(prep_folder,name+'_label.npy'),label2)
+        if use_existing and os.path.exists(os.path.join(prep_folder,name+'_clean.npy')) and os.path.exists(os.path.join(prep_folder,name+'_label.npy')):
+            print(f'Already preprocessed {name}')
+            return
 
-    print(name)
+        im, m1, m2, spacing = step1_python(os.path.join(data_path,name))
+        Mask = m1+m2
+        
+        newshape = np.round(np.array(Mask.shape)*spacing/resolution)
+        xx,yy,zz= np.where(Mask)
+        box = np.array([[np.min(xx),np.max(xx)],[np.min(yy),np.max(yy)],[np.min(zz),np.max(zz)]])
+        box = box*np.expand_dims(spacing,1)/np.expand_dims(resolution,1)
+        box = np.floor(box).astype('int')
+        margin = 5
+        extendbox = np.vstack([np.max([[0,0,0],box[:,0]-margin],0),np.min([newshape,box[:,1]+2*margin],axis=0).T]).T
+        extendbox = extendbox.astype('int')
+
+        convex_mask = m1
+        dm1 = process_mask(m1)
+        dm2 = process_mask(m2)
+        dilatedMask = dm1+dm2
+        Mask = m1+m2
+        extramask = dilatedMask - Mask
+        bone_thresh = 210
+        pad_value = 170
+        im[np.isnan(im)]=-2000
+        sliceim = lumTrans(im)
+        sliceim = sliceim*dilatedMask+pad_value*(1-dilatedMask).astype('uint8')
+        bones = sliceim*extramask>bone_thresh
+        sliceim[bones] = pad_value
+        sliceim1,_ = resample(sliceim,spacing,resolution,order=1)
+        sliceim2 = sliceim1[extendbox[0,0]:extendbox[0,1],
+                    extendbox[1,0]:extendbox[1,1],
+                    extendbox[2,0]:extendbox[2,1]]
+        sliceim = sliceim2[np.newaxis,...]
+        np.save(os.path.join(prep_folder,name+'_clean.npy'),sliceim)
+
+        
+        if len(label)==0:
+            label2 = np.array([[0,0,0,0]])
+        elif len(label[0])==0:
+            label2 = np.array([[0,0,0,0]])
+        elif label[0][0]==0:
+            label2 = np.array([[0,0,0,0]])
+        else:
+            haslabel = 1
+            label2 = np.copy(label).T
+            label2[:3] = label2[:3][[0,2,1]]
+            label2[:3] = label2[:3]*np.expand_dims(spacing,1)/np.expand_dims(resolution,1)
+            label2[3] = label2[3]*spacing[1]/resolution[1]
+            label2[:3] = label2[:3]-np.expand_dims(extendbox[:,0],1)
+            label2 = label2[:4].T
+        np.save(os.path.join(prep_folder,name+'_label.npy'),label2)
+
+        print(name)
+    except Exception as e:
+        print(e)
+        print(name+' preprocessing failed')
 
 def full_prep(step1=True,step2 = True):
     warnings.filterwarnings("ignore")
@@ -180,152 +190,160 @@ def full_prep(step1=True,step2 = True):
         print('end preprocessing')
     f= open(finished_flag,"w+")        
 
-def savenpy_luna(id, annos, filelist, luna_segment, luna_data, savepath):
-    islabel = True
-    isClean = True
-    resolution = np.array([1,1,1])
-#     resolution = np.array([2,2,2])
-    name = filelist[id]
-    
-    Mask,origin,spacing,isflip = load_itk_image(os.path.join(luna_segment,name+'.mhd'))
-    if isflip:
-        Mask = Mask[:,::-1,::-1]
-    newshape = np.round(np.array(Mask.shape)*spacing/resolution).astype('int')
-    m1 = Mask==3
-    m2 = Mask==4
-    Mask = m1+m2
-    
-    xx,yy,zz= np.where(Mask)
-    box = np.array([[np.min(xx),np.max(xx)],[np.min(yy),np.max(yy)],[np.min(zz),np.max(zz)]])
-    box = box*np.expand_dims(spacing,1)/np.expand_dims(resolution,1)
-    box = np.floor(box).astype('int')
-    margin = 5
-    extendbox = np.vstack([np.max([[0,0,0],box[:,0]-margin],0),np.min([newshape,box[:,1]+2*margin],axis=0).T]).T
+def savenpy_luna(id, annos, filelist, luna_segment, luna_data, savepath, use_existing = False):
 
-    # redundent line as replicated later
-    # this_annos = np.copy(annos[annos[:,0]==int(name)])        
+    try:
+        islabel = True
+        isClean = True
+        resolution = np.array([1,1,1])
+    #     resolution = np.array([2,2,2])
+        name = filelist[id]
+        
+        if use_existing and os.path.exists(os.path.join(savepath,name+'_clean.npy')) and os.path.exists(os.path.join(savepath,name+'_label.npy')):
+            print(f'Already preprocessed {name}')
+            return
 
-    if isClean:
-        convex_mask = m1
-        dm1 = process_mask(m1)
-        dm2 = process_mask(m2)
-        dilatedMask = dm1+dm2
-        Mask = m1+m2
-        extramask = dilatedMask ^ Mask
-        bone_thresh = 210
-        pad_value = 170
-
-        sliceim,origin,spacing,isflip = load_itk_image(os.path.join(luna_data,name+'.mhd'))
+        Mask,origin,spacing,isflip = load_itk_image(os.path.join(luna_segment,name+'.mhd'))
         if isflip:
-            sliceim = sliceim[:,::-1,::-1]
-            print('flip!')
-        sliceim = lumTrans(sliceim)
-        sliceim = sliceim*dilatedMask+pad_value*(1-dilatedMask).astype('uint8')
-        bones = (sliceim*extramask)>bone_thresh
-        sliceim[bones] = pad_value
+            Mask = Mask[:,::-1,::-1]
+        newshape = np.round(np.array(Mask.shape)*spacing/resolution).astype('int')
+        m1 = Mask==3
+        m2 = Mask==4
+        Mask = m1+m2
         
-        sliceim1,_ = resample(sliceim,spacing,resolution,order=1)
-        sliceim2 = sliceim1[extendbox[0,0]:extendbox[0,1],
-                    extendbox[1,0]:extendbox[1,1],
-                    extendbox[2,0]:extendbox[2,1]]
-        sliceim = sliceim2[np.newaxis,...]
-        np.save(os.path.join(savepath,name+'_clean.npy'),sliceim)
+        xx,yy,zz= np.where(Mask)
+        box = np.array([[np.min(xx),np.max(xx)],[np.min(yy),np.max(yy)],[np.min(zz),np.max(zz)]])
+        box = box*np.expand_dims(spacing,1)/np.expand_dims(resolution,1)
+        box = np.floor(box).astype('int')
+        margin = 5
+        extendbox = np.vstack([np.max([[0,0,0],box[:,0]-margin],0),np.min([newshape,box[:,1]+2*margin],axis=0).T]).T
 
+        # redundent line as replicated later
+        # this_annos = np.copy(annos[annos[:,0]==int(name)])        
 
-    if islabel:
+        if isClean:
+            convex_mask = m1
+            dm1 = process_mask(m1)
+            dm2 = process_mask(m2)
+            dilatedMask = dm1+dm2
+            Mask = m1+m2
+            extramask = dilatedMask ^ Mask
+            bone_thresh = 210
+            pad_value = 170
 
-        # second part of interception of annotation file
-        # this_annos = np.copy(annos[annos[:,0]==int(name)])
-        annotations = annos[annos.scan_id==name]
-
-        label = []
-        if len(annotations)>0:
+            sliceim,origin,spacing,isflip = load_itk_image(os.path.join(luna_data,name+'.mhd'))
+            if isflip:
+                sliceim = sliceim[:,::-1,::-1]
+                print('flip!')
+            sliceim = lumTrans(sliceim)
+            sliceim = sliceim*dilatedMask+pad_value*(1-dilatedMask).astype('uint8')
+            bones = (sliceim*extramask)>bone_thresh
+            sliceim[bones] = pad_value
             
-            for idx, annotation in annotations.iterrows():
+            sliceim1,_ = resample(sliceim,spacing,resolution,order=1)
+            sliceim2 = sliceim1[extendbox[0,0]:extendbox[0,1],
+                        extendbox[1,0]:extendbox[1,1],
+                        extendbox[2,0]:extendbox[2,1]]
+            sliceim = sliceim2[np.newaxis,...]
+            np.save(os.path.join(savepath,name+'_clean.npy'),sliceim)
 
-                c = np.array([annotation['nodule_z_coordinate'],annotation['nodule_y_coordinate'],annotation['nodule_x_coordinate'],annotation['nodule_diameter_mm']])
-                # pos = worldToVoxelCoord(c,origin=origin,spacing=spacing)
 
-                pos = worldToVoxelCoord(c[:3],origin=origin,spacing=spacing)
-                if isflip:
-                    pos[1:] = Mask.shape[1:3]-pos[1:]
-                label.append(np.concatenate([pos,[c[3]/spacing[1]]]))
+        if islabel:
+
+            # second part of interception of annotation file
+            # this_annos = np.copy(annos[annos[:,0]==int(name)])
+            annotations = annos[annos.scan_id==name]
+
+            label = []
+            if len(annotations)>0:
+                
+                for idx, annotation in annotations.iterrows():
+
+                    c = np.array([annotation['nodule_z_coordinate'],annotation['nodule_y_coordinate'],annotation['nodule_x_coordinate'],annotation['nodule_diameter_mm']])
+                    # pos = worldToVoxelCoord(c,origin=origin,spacing=spacing)
+
+                    pos = worldToVoxelCoord(c[:3],origin=origin,spacing=spacing)
+                    if isflip:
+                        pos[1:] = Mask.shape[1:3]-pos[1:]
+                    label.append(np.concatenate([pos,[c[3]/spacing[1]]]))
+                
+            label = np.array(label)
+            if len(label)==0:
+                label2 = np.array([[0,0,0,0]])
+            else:
+                label2 = np.copy(label).T
+                label2[:3] = label2[:3]*np.expand_dims(spacing,1)/np.expand_dims(resolution,1)
+                label2[3] = label2[3]*spacing[1]/resolution[1]
+                label2[:3] = label2[:3]-np.expand_dims(extendbox[:,0],1)
+                label2 = label2[:4].T
+            np.save(os.path.join(savepath,name+'_label.npy'),label2)
             
-        label = np.array(label)
-        if len(label)==0:
-            label2 = np.array([[0,0,0,0]])
-        else:
-            label2 = np.copy(label).T
-            label2[:3] = label2[:3]*np.expand_dims(spacing,1)/np.expand_dims(resolution,1)
-            label2[3] = label2[3]*spacing[1]/resolution[1]
-            label2[:3] = label2[:3]-np.expand_dims(extendbox[:,0],1)
-            label2 = label2[:4].T
-        np.save(os.path.join(savepath,name+'_label.npy'),label2)
-        
-    print(name)
+        print(name)
+
+    except Exception as e:
+        print(e)
+        print(name+' preprocessing failed')
 
 def preprocess_luna(scanlist_path, metadata_path):
     luna_segment            =   config['luna_segment']
     savepath                =   config['preprocess_result_path']
     luna_data               =   config['luna_data']
-    n_worker_preprocessing  = config['n_worker_preprocessing']
+    n_worker_preprocessing  =   config['n_worker_preprocessing']
+    use_existing            =   config['use_existing']
 
     # luna_label = config['luna_label'] ... no longer needed
 
-    finished_flag = '.flag_preprocessluna'
     print('starting preprocessing luna')
 
+    # filelist = [f.split('.mhd')[0] for f in os.listdir(luna_data) if f.endswith('.mhd') ]
+    scan_ids = pandas.read_csv(scanlist_path).scan_id.values
+    filelist = [
+        scan_path.stem
+        for scan_path in Path(luna_data).glob('*.mhd')
+        if scan_path.stem in scan_ids
+    ]
 
-    if not os.path.exists(finished_flag):
+    # intercept the annotation file
+    # this moves from being an int index to a string index
+    # therefore need to change the code to reflect this
+    # annos = np.array(pandas.read_csv(luna_label))
 
-        # filelist = [f.split('.mhd')[0] for f in os.listdir(luna_data) if f.endswith('.mhd') ]
-        scan_ids = pandas.read_csv(scanlist_path).scan_id.values
-        filelist = [
-            scan_path.stem
-            for scan_path in Path(luna_data).glob('*.mhd')
-            if scan_path.stem in scan_ids
-        ]
+    annos = pandas.read_csv(metadata_path)
 
-        # intercept the annotation file
-        # this moves from being an int index to a string index
-        # therefore need to change the code to reflect this
-        # annos = np.array(pandas.read_csv(luna_label))
-
-        annos = pandas.read_csv(metadata_path)
-
-        if not os.path.exists(savepath):
-            os.mkdir(savepath)
+    if not os.path.exists(savepath):
+        os.mkdir(savepath)
 
 
-        N = len(filelist)
+    N = len(filelist)
+    
+    if n_worker_preprocessing == 1:
+        for id in range(N):
+            savenpy_luna(
+                id, 
+                annos,
+                filelist, 
+                luna_segment, 
+                luna_data,
+                savepath,
+                use_existing
+            )
+    else:
         
-        if n_worker_preprocessing == 1:
-            for id in range(N):
-                savenpy_luna(
-                    id, 
-                    annos,
-                    filelist, 
-                    luna_segment, 
-                    luna_data,
-                    savepath
-                )
-        else:
-            
-            partial_savenpy_luna = partial(
-                                        savenpy_luna,
-                                        annos=annos,
-                                        filelist=filelist,
-                                        luna_segment=luna_segment,
-                                        luna_data=luna_data,
-                                        savepath=savepath
-                                    )
+        partial_savenpy_luna = partial(
+                                    savenpy_luna,
+                                    annos=annos,
+                                    filelist=filelist,
+                                    luna_segment=luna_segment,
+                                    luna_data=luna_data,
+                                    savepath=savepath,
+                                    use_existing=use_existing
+                                )
 
 
-            with Pool(n_worker_preprocessing) as pool:
-                _ = pool.map(partial_savenpy_luna, range(N))
+        with Pool(n_worker_preprocessing) as pool:
+            _ = pool.map(partial_savenpy_luna, range(N))
 
     print('end preprocessing luna')
-    f = open(finished_flag,"w+")
     
 def prepare_luna():
     """
