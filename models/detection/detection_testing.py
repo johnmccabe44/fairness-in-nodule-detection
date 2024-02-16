@@ -180,7 +180,7 @@ def main():
                         "score": inference_pred_i["pred_score"].cpu().detach().numpy().tolist(),
                     }
                     result.update({"image": inference_img_filename})
-                    results_dict["validation"].append(result)
+                    results_dict["test"].append(result)
 
             except Exception as err:
 
