@@ -233,7 +233,7 @@ def main():
         print(f'Training epoch {epoch}', flush=True)
         train(train_loader, net, loss, epoch, optimizer, get_lr, args.save_freq, save_dir, device)
 
-        if epoch % 10 == 0:
+        if epoch % args.save_freq == 0:
             print(f'Validation epoch {epoch}', flush=True)
             validate(val_loader, net, loss, device)
             print('Returned back to loop!', flush=True)
