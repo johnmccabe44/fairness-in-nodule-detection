@@ -147,7 +147,7 @@ def main():
             try:
 
                 inference_img_filenames = [
-                    inference_data_i["image_meta_dict"]["filename_or_obj"] for inference_data_i in inference_data
+                    inference_data_i["image"].meta["filename_or_obj"] for inference_data_i in inference_data
                 ]
                 print(inference_img_filenames)
                 use_inferer = not all(
