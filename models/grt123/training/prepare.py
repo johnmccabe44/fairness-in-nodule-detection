@@ -98,7 +98,7 @@ def savenpy(id,annos,filelist,data_path,prep_folder, use_existing = False):
         label = label[:,[3,1,2,4]].astype('float')
 
         if use_existing and os.path.exists(os.path.join(prep_folder,name+'_clean.npy')) and os.path.exists(os.path.join(prep_folder,name+'_label.npy')):
-            print(f'Already preprocessed {name}')
+            print(f'Already preprocessed {name}', flush=True)
             return
 
         im, m1, m2, spacing = step1_python(os.path.join(data_path,name))
@@ -150,10 +150,10 @@ def savenpy(id,annos,filelist,data_path,prep_folder, use_existing = False):
             label2 = label2[:4].T
         np.save(os.path.join(prep_folder,name+'_label.npy'),label2)
 
-        print(name)
+        print(name, flush=True)
     except Exception as e:
-        print(e)
-        print(name+' preprocessing failed')
+        print(e, flush=True)
+        print(name+' preprocessing failed', flush=True)
 
 def full_prep(step1=True,step2 = True):
     warnings.filterwarnings("ignore")
@@ -177,7 +177,7 @@ def full_prep(step1=True,step2 = True):
             os.mkdir(prep_folder)
         #eng.addpath('preprocessing/',nargout=0)
 
-        print('starting preprocessing')
+        print('starting preprocessing', flush=True)
         pool = Pool()
         filelist = [f for f in os.listdir(data_path)]
         partial_savenpy = partial(savenpy,annos= alllabel,filelist=filelist,data_path=data_path,prep_folder=prep_folder )
@@ -187,7 +187,7 @@ def full_prep(step1=True,step2 = True):
         _=pool.map(partial_savenpy,range(N))
         pool.close()
         pool.join()
-        print('end preprocessing')
+        print('end preprocessing', flush=True)
     f= open(finished_flag,"w+")        
 
 def savenpy_luna(id, annos, filelist, luna_segment, luna_data, savepath, use_existing = False):
@@ -200,7 +200,7 @@ def savenpy_luna(id, annos, filelist, luna_segment, luna_data, savepath, use_exi
         name = filelist[id]
         
         if use_existing and os.path.exists(os.path.join(savepath,name+'_clean.npy')) and os.path.exists(os.path.join(savepath,name+'_label.npy')):
-            print(f'Already preprocessed {name}')
+            print(f'Already preprocessed {name}', flush=True)
             return
 
         Mask,origin,spacing,isflip = load_itk_image(os.path.join(luna_segment,name+'.mhd'))
@@ -234,7 +234,7 @@ def savenpy_luna(id, annos, filelist, luna_segment, luna_data, savepath, use_exi
             sliceim,origin,spacing,isflip = load_itk_image(os.path.join(luna_data,name+'.mhd'))
             if isflip:
                 sliceim = sliceim[:,::-1,::-1]
-                print('flip!')
+                print('flip!', flush=True)
             sliceim = lumTrans(sliceim)
             sliceim = sliceim*dilatedMask+pad_value*(1-dilatedMask).astype('uint8')
             bones = (sliceim*extramask)>bone_thresh
@@ -278,11 +278,11 @@ def savenpy_luna(id, annos, filelist, luna_segment, luna_data, savepath, use_exi
                 label2 = label2[:4].T
             np.save(os.path.join(savepath,name+'_label.npy'),label2)
             
-        print(name)
+        print(name, flush=True)
 
     except Exception as e:
-        print(e)
-        print(name+' preprocessing failed')
+        print(e, flush=True)
+        print(name+' preprocessing failed', flush=True)
 
 def preprocess_luna(scanlist_path, metadata_path):
     luna_segment            =   config['luna_segment']
@@ -293,7 +293,7 @@ def preprocess_luna(scanlist_path, metadata_path):
 
     # luna_label = config['luna_label'] ... no longer needed
 
-    print('starting preprocessing luna')
+    print('starting preprocessing luna', flush=True)
 
     # filelist = [f.split('.mhd')[0] for f in os.listdir(luna_data) if f.endswith('.mhd') ]
     scan_ids = pandas.read_csv(scanlist_path).scan_id.values
@@ -343,13 +343,13 @@ def preprocess_luna(scanlist_path, metadata_path):
         with Pool(n_worker_preprocessing) as pool:
             _ = pool.map(partial_savenpy_luna, range(N))
 
-    print('end preprocessing luna')
+    print('end preprocessing luna', flush=True)
     
 def prepare_luna():
     """
         THIS IS NOT USED ... USE LONG IDS
     """
-    print('start changing luna name')
+    print('start changing luna name', flush=True)
     luna_raw = config['luna_raw']
     luna_abbr = config['luna_abbr']
     luna_data = config['luna_data']
@@ -387,7 +387,7 @@ def prepare_luna():
                 id = ids[namelist.index(name)]
                 filename = '0'*(3-len(str(id)))+str(id)
                 shutil.move(os.path.join(d,f),os.path.join(luna_data,filename+f[-4:]))
-                print(os.path.join(luna_data,str(id)+f[-4:]))
+                print(os.path.join(luna_data,str(id)+f[-4:]), flush=True)
 
         files = [f for f in os.listdir(luna_data) if f.endswith('mhd')]
         for file in files:
@@ -396,7 +396,7 @@ def prepare_luna():
                 id = file.split('.mhd')[0]
                 filename = '0'*(3-len(str(id)))+str(id)
                 content[-1]='ElementDataFile = '+filename+'.raw\n'
-                print(content[-1])
+                print(content[-1], flush=True)
             with open(os.path.join(luna_data,file),'w') as f:
                 f.writelines(content)
 
@@ -415,7 +415,7 @@ def prepare_luna():
                 filename = '0'*(3-len(str(id)))+str(id)
 
                 shutil.move(os.path.join(luna_segment,f),os.path.join(luna_segment,filename+lastfix))
-                print(os.path.join(luna_segment,filename+lastfix))
+                print(os.path.join(luna_segment,filename+lastfix), flush=True)
 
 
         files = [f for f in os.listdir(luna_segment) if f.endswith('mhd')]
@@ -425,10 +425,10 @@ def prepare_luna():
                 id =  file.split('.mhd')[0]
                 filename = '0'*(3-len(str(id)))+str(id)
                 content[-1]='ElementDataFile = '+filename+'.zraw\n'
-                print(content[-1])
+                print(content[-1], flush=True)
             with open(os.path.join(luna_segment,file),'w') as f:
                 f.writelines(content)
-    print('end changing luna name')
+    print('end changing luna name', flush=True)
     f= open(finished_flag,"w+")
 
 if __name__=='__main__':
