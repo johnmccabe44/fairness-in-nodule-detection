@@ -5,6 +5,7 @@ from functools import partial
 from multiprocessing import Pool
 import numpy as np
 import pandas
+from pathlib import Path
 import SimpleITK as sitk
 from config_training import config
 from scipy.io import loadmat
@@ -179,7 +180,7 @@ def full_prep(step1=True,step2 = True):
         print('end preprocessing')
     f= open(finished_flag,"w+")        
 
-def savenpy_luna(id,annos,filelist,luna_segment,luna_data,savepath):
+def savenpy_luna(id, annos, filelist, luna_segment, luna_data, savepath):
     islabel = True
     isClean = True
     resolution = np.array([1,1,1])
@@ -201,7 +202,8 @@ def savenpy_luna(id,annos,filelist,luna_segment,luna_data,savepath):
     margin = 5
     extendbox = np.vstack([np.max([[0,0,0],box[:,0]-margin],0),np.min([newshape,box[:,1]+2*margin],axis=0).T]).T
 
-    this_annos = np.copy(annos[annos[:,0]==int(name)])        
+    # redundent line as replicated later
+    # this_annos = np.copy(annos[annos[:,0]==int(name)])        
 
     if isClean:
         convex_mask = m1
@@ -232,15 +234,22 @@ def savenpy_luna(id,annos,filelist,luna_segment,luna_data,savepath):
 
     if islabel:
 
-        this_annos = np.copy(annos[annos[:,0]==int(name)])
+        # second part of interception of annotation file
+        # this_annos = np.copy(annos[annos[:,0]==int(name)])
+        annotations = annos[annos.scan_id==name]
+
         label = []
-        if len(this_annos)>0:
+        if len(annotations)>0:
             
-            for c in this_annos:
-                pos = worldToVoxelCoord(c[1:4][::-1],origin=origin,spacing=spacing)
+            for idx, annotation in annotations.iterrows():
+
+                c = np.array([annotation['nodule_z_coordinate'],annotation['nodule_y_coordinate'],annotation['nodule_x_coordinate'],annotation['nodule_diameter_mm']])
+                # pos = worldToVoxelCoord(c,origin=origin,spacing=spacing)
+
+                pos = worldToVoxelCoord(c[:3],origin=origin,spacing=spacing)
                 if isflip:
                     pos[1:] = Mask.shape[1:3]-pos[1:]
-                label.append(np.concatenate([pos,[c[4]/spacing[1]]]))
+                label.append(np.concatenate([pos,[c[3]/spacing[1]]]))
             
         label = np.array(label)
         if len(label)==0:
@@ -255,34 +264,73 @@ def savenpy_luna(id,annos,filelist,luna_segment,luna_data,savepath):
         
     print(name)
 
-def preprocess_luna():
-    luna_segment = config['luna_segment']
-    savepath = config['preprocess_result_path']
-    luna_data = config['luna_data']
-    luna_label = config['luna_label']
+def preprocess_luna(scanlist_path, metadata_path):
+    luna_segment            =   config['luna_segment']
+    savepath                =   config['preprocess_result_path']
+    luna_data               =   config['luna_data']
+    n_worker_preprocessing  = config['n_worker_preprocessing']
+
+    # luna_label = config['luna_label'] ... no longer needed
+
     finished_flag = '.flag_preprocessluna'
     print('starting preprocessing luna')
+
+
     if not os.path.exists(finished_flag):
-        filelist = [f.split('.mhd')[0] for f in os.listdir(luna_data) if f.endswith('.mhd') ]
-        annos = np.array(pandas.read_csv(luna_label))
+
+        # filelist = [f.split('.mhd')[0] for f in os.listdir(luna_data) if f.endswith('.mhd') ]
+        scan_ids = pandas.read_csv(scanlist_path).scan_id.values
+        filelist = [
+            scan_path.stem
+            for scan_path in Path(luna_data).glob('*.mhd')
+            if scan_path.stem in scan_ids
+        ]
+
+        # intercept the annotation file
+        # this moves from being an int index to a string index
+        # therefore need to change the code to reflect this
+        # annos = np.array(pandas.read_csv(luna_label))
+
+        annos = pandas.read_csv(metadata_path)
 
         if not os.path.exists(savepath):
             os.mkdir(savepath)
 
-        
-        pool = Pool()
-        partial_savenpy_luna = partial(savenpy_luna,annos=annos,filelist=filelist,
-                                       luna_segment=luna_segment,luna_data=luna_data,savepath=savepath)
 
         N = len(filelist)
-        #savenpy(1)
-        _=pool.map(partial_savenpy_luna,range(N))
-        pool.close()
-        pool.join()
+        
+        if n_worker_preprocessing == 1:
+            for id in range(N):
+                savenpy_luna(
+                    id, 
+                    annos,
+                    filelist, 
+                    luna_segment, 
+                    luna_data,
+                    savepath
+                )
+        else:
+            
+            partial_savenpy_luna = partial(
+                                        savenpy_luna,
+                                        annos=annos,
+                                        filelist=filelist,
+                                        luna_segment=luna_segment,
+                                        luna_data=luna_data,
+                                        savepath=savepath
+                                    )
+
+
+            with Pool(n_worker_preprocessing) as pool:
+                _ = pool.map(partial_savenpy_luna, range(N))
+
     print('end preprocessing luna')
-    f= open(finished_flag,"w+")
+    f = open(finished_flag,"w+")
     
 def prepare_luna():
+    """
+        THIS IS NOT USED ... USE LONG IDS
+    """
     print('start changing luna name')
     luna_raw = config['luna_raw']
     luna_abbr = config['luna_abbr']
@@ -370,18 +418,32 @@ if __name__=='__main__':
     #prepare_luna()
     #preprocess_luna()
 
-    datapath=config['datapath'] 
-    prep_result_path=config['preprocess_result_path']
-    n_worker_preprocessing=config['n_worker_preprocessing']
-    use_existing=config['use_existing']
 
-    scanlist_path=sys.argv[1]
-    metadata_path=sys.argv[2]
 
-    full_prep_summit(data_path=datapath,
-                     prep_folder=prep_result_path,
-                     scanlist_path=scanlist_path,
-                     n_worker=n_worker_preprocessing,
-                     use_existing=use_existing,
-                     metadata_path=metadata_path)
+    dataset         = sys.argv[1]
+    scanlist_path   = sys.argv[2]
+    metadata_path   = sys.argv[3]
+
+    if dataset == 'luna':
+
+        preprocess_luna(
+            scanlist_path=scanlist_path,
+            metadata_path=metadata_path
+        )
+
+    elif dataset == 'summit':
+
+        datapath                = config['datapath'] 
+        prep_result_path        = config['preprocess_result_path']
+        n_worker_preprocessing  = config['n_worker_preprocessing']
+        use_existing            = config['use_existing']
+        
+        full_prep_summit(
+            data_path=datapath,
+            prep_folder=prep_result_path,
+            scanlist_path=scanlist_path,
+            n_worker=n_worker_preprocessing,
+            use_existing=use_existing,
+            metadata_path=metadata_path
+        )
     

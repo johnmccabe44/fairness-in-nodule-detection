@@ -7,6 +7,9 @@ import pandas as pd
 from pathlib import Path
 import tqdm
 from typing import List
+import warnings
+
+warnings.filterwarnings("ignore")
 
 from layers import nms,iou
 
@@ -83,7 +86,7 @@ def combine_pbb(scan_ids: List[str], bbox_path: Path, threshold: float, workers:
             pbb_dfs.append(load_pbb(idx, pbb_paths, threshold))
 
 
-    return pd.concat([df for df in pbb_dfs if df.shape[0>0]]).reset_index().drop('level_0', axis=1)
+    return pd.concat([df for df in pbb_dfs if df.shape[0]>0]).reset_index().drop('level_0', axis=1)
 
 def merge_lbl_and_metadata(idx:int, lbb_paths: List[Path], metadata: pd.DataFrame):
     """
@@ -100,7 +103,7 @@ def merge_lbl_and_metadata(idx:int, lbb_paths: List[Path], metadata: pd.DataFram
         scan_id = lbb_paths[idx].name.split('_lbb.npy')[0]
         stem = lbb_paths[idx].name.split('_',1)[0]
 
-        nodule_metadata = metadata[metadata.main_participant_id==stem]
+        nodule_metadata = metadata[metadata.participant_id==stem]
 
         if nodule_metadata.shape[0] == 0 and np.array_equal(lbb, [[0,0,0,0]]):
             return None
