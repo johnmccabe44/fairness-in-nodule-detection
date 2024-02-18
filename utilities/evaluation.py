@@ -10,7 +10,7 @@ import sklearn.metrics as skl_metrics
 import numpy as np
 
 # Evaluation settings
-bPerformBootstrapping = False
+bPerformBootstrapping = True
 bNumberOfBootstrapSamples = 1000
 bOtherNodulesAsIrrelevant = True
 bConfidence = 0.95
@@ -29,7 +29,7 @@ ethnicity_label = 'ethnic_group'
 
 # plot settings
 FROC_minX = 0.125 # Mininum value of x-axis of FROC curve
-FROC_maxX = 128 # Maximum value of x-axis of FROC curve
+FROC_maxX = 8 # Maximum value of x-axis of FROC curve
 bLogPlot = True
 
 class NoduleFinding(object):
@@ -305,6 +305,9 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
         except KeyError:
             noduleAnnots = []
 
+        if seriesuid == '1.3.6.1.4.1.14519.5.2.1.6279.6001.104562737760173137525888934217':
+            print('noduleAnnots:', noduleAnnots)
+
         # - loop over the nodule annotations
         for noduleAnnot in noduleAnnots:
             # increment the number of nodules
@@ -490,10 +493,10 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
         
         if bLogPlot:
             plt.xscale('log', base=2)
-            ax.xaxis.set_major_formatter(FixedFormatter([0.125,0.25,0.5,1,2,4,8,16,32,64,128]))
+            ax.xaxis.set_major_formatter(FixedFormatter([0.125,0.25,0.5,1,2,4,8]))
         
         # set your ticks manually
-        ax.xaxis.set_ticks([0.125,0.25,0.5,1,2,4,8,16,32,64,128])
+        ax.xaxis.set_ticks([0.125,0.25,0.5,1,2,4,8])
         ax.yaxis.set_ticks(np.arange(0, 1.1, 0.1))
         plt.grid(visible=True, which='both')
         plt.tight_layout()
@@ -527,8 +530,8 @@ def getNodule(annotation, header, state = ""):
     return nodule
     
 def collectNoduleAnnotations(annotations, annotations_excluded, seriesUIDs):
-    allNodules = {}
     noduleCount = 0
+    allNodules = {}
     noduleCountTotal = 0
     
     for seriesuid in seriesUIDs:
@@ -563,8 +566,7 @@ def collectNoduleAnnotations(annotations, annotations_excluded, seriesUIDs):
     print('Total number of included nodule annotations: ' + str(noduleCount))
     print('Total number of nodule annotations: ' + str(noduleCountTotal))
     return allNodules
-    
-    
+        
 def collect(annotations_filename,annotations_excluded_filename,seriesuids_filename):
     annotations          = readCSV(annotations_filename)
     annotations_excluded = readCSV(annotations_excluded_filename)

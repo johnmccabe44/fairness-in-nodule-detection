@@ -238,8 +238,6 @@ def main():
             validate(val_loader, net, loss, device)
             print('Returned back to loop!', flush=True)
             
-
-
 def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir, device):
     start_time = time.time()
     
