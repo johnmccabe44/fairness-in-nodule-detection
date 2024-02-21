@@ -88,7 +88,7 @@ def main():
     inference_data = load_decathlon_datalist(
         args.data_list_file_path,
         is_segmentation=True,
-        data_list_key="test",
+        data_list_key=args.dataset_name,
         base_dir=args.data_base_dir,
     )
     inference_ds = Dataset(
@@ -138,7 +138,7 @@ def main():
     )
 
     # 4. apply trained model
-    results_dict = {"test": []}
+    results_dict = {args.dataset_name: []}
     detector.eval()
 
     with torch.no_grad():
@@ -180,7 +180,7 @@ def main():
                         "score": inference_pred_i["pred_score"].cpu().detach().numpy().tolist(),
                     }
                     result.update({"image": inference_img_filename})
-                    results_dict["test"].append(result)
+                    results_dict[args.dataset_name].append(result)
 
             except Exception as err:
 
