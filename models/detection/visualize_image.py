@@ -40,7 +40,11 @@ def visualize_one_xy_slice_in_3d_image(gt_boxes, image, pred_boxes, gt_box_index
         image: image numpy array, sized (H, W, D)
         pred_boxes: numpy array sized (N, 6)
     """
-    draw_box = gt_boxes[gt_box_index, :]
+    if len(gt_boxes) > 0:
+        draw_box = gt_boxes[gt_box_index, :]
+    else:
+        draw_box = [5, 5, 5, 5, 5, 5]
+
     draw_box_center = [round((draw_box[axis] + draw_box[axis + 3] - 1) / 2.0) for axis in range(3)]
     draw_box = np.round(draw_box).astype(int).tolist()
     draw_box_z = draw_box_center[2]  # the z-slice we will visualize
@@ -55,7 +59,7 @@ def visualize_one_xy_slice_in_3d_image(gt_boxes, image, pred_boxes, gt_box_index
         draw_img,
         pt1=(draw_box[1], draw_box[0]),
         pt2=(draw_box[4], draw_box[3]),
-        color=(0, 255, 0),  # green for GT
+        color=(0, 0, 255),  # blue for GT ... green is very colourblind-unfriendly
         thickness=1,
     )
     # draw predicted boxes
