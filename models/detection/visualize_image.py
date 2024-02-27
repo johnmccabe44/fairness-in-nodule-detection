@@ -44,6 +44,7 @@ def visualize_one_xy_slice_in_3d_image(gt_boxes, image, pred_boxes, gt_box_index
         draw_box = gt_boxes[gt_box_index, :]
     else:
         draw_box = [5, 5, 5, 5, 5, 5]
+        print('Selected image has no GT box, visualize the whole image instead.')
 
     draw_box_center = [round((draw_box[axis] + draw_box[axis + 3] - 1) / 2.0) for axis in range(3)]
     draw_box = np.round(draw_box).astype(int).tolist()

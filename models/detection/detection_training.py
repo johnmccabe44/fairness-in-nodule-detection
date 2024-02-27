@@ -281,7 +281,7 @@ def main():
         topk_candidates_per_level=1000,
         nms_thresh=args.nms_thresh,
         detections_per_img=100,
-    )
+   )
     detector.set_sliding_window_inferer(
         roi_size=args.val_patch_size,
         overlap=0.25,
@@ -415,11 +415,13 @@ def main():
             end_time = time.time()
             logging.info(f"Validation time: {end_time-start_time}s")
 
-            # visualize an inference image and boxes to tensorboard
+            # visualize an inference image and boxes to tensorboard 
+            random_index = np.random.randint(len(val_inputs))
+
             draw_img = visualize_one_xy_slice_in_3d_image(
-                gt_boxes=val_data[0]["box"].cpu().detach().numpy(),
-                image=val_inputs[0][0, ...].cpu().detach().numpy(),
-                pred_boxes=val_outputs[0][detector.target_box_key].cpu().detach().numpy(),
+                gt_boxes=val_data[random_index]["box"].cpu().detach().numpy(),
+                image=val_inputs[random_index][0, ...].cpu().detach().numpy(),
+                pred_boxes=val_outputs[random_index][detector.target_box_key].cpu().detach().numpy(),
             )
             tensorboard_writer.add_image("val_img_xy", draw_img.transpose([2, 1, 0]), epoch + 1)
 
