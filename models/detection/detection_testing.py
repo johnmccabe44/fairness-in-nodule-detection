@@ -91,10 +91,16 @@ def main():
         data_list_key=args.dataset_name,
         base_dir=args.data_base_dir,
     )
+
+    print(inference_data, flush=True)
+
     inference_ds = Dataset(
         data=inference_data,
         transform=inference_transforms,
     )
+
+    print(inference_ds.__len__(), flush=True)
+
     inference_loader = DataLoader(
         inference_ds,
         batch_size=1,
