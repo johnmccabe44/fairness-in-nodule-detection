@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import time
 import numpy as np
@@ -17,45 +18,65 @@ from torch.backends import cudnn
 from torch.utils.data import DataLoader
 from torch import optim
 from torch.autograd import Variable
-from config_training import config as config_training
+
 
 from layers import acc
 
 from pynvml import nvmlInit, nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo
 
 parser = argparse.ArgumentParser(description='PyTorch DataBowl3 Detector')
+
 parser.add_argument('--model', '-m', metavar='MODEL', default='base',
                     help='model')
+
 parser.add_argument('-j', '--workers', default=32, type=int, metavar='N',
                     help='number of data loading workers (default: 32)')
+
 parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run')
+
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
+
 parser.add_argument('-b', '--batch-size', default=16, type=int,
                     metavar='N', help='mini-batch size (default: 16)')
+
 parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
                     metavar='LR', help='initial learning rate')
+
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
+
 parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)')
+
 parser.add_argument('--save-freq', default='10', type=int, metavar='S',
                     help='save frequency')
+
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
+
 parser.add_argument('--data-dir', default='', type=str, metavar='SAVE',
                     help='directory to save checkpoint (default: none)')
+
 parser.add_argument('--save-dir', default='', type=str, metavar='SAVE',
                     help='directory to save checkpoint (default: none)')
+
+parser.add_argument('--metadata-dir', default='', type=str, metavar='SAVE',
+                    help='directory where the metadata is stored (default: none)')
+
 parser.add_argument('--test', default=0, type=int, metavar='TEST',
                     help='1 do test evaluation, 0 not')
+
 parser.add_argument('--split', default=8, type=int, metavar='SPLIT',
                     help='In the test phase, split the image to 8 parts')
+
 parser.add_argument('--gpu', default='all', type=str, metavar='N',
                     help='use gpu')
+
 parser.add_argument('--n_test', default=8, type=int, metavar='N',
                     help='number of gpu for test')
+
 
 def print_gpu_stats(device, msg, debug=False):
 
@@ -93,7 +114,6 @@ def main():
     global args
     args = parser.parse_args()
     
-    
     torch.manual_seed(0)
 
     use_cuda = torch.cuda.is_available()
@@ -129,7 +149,7 @@ def main():
             save_dir = os.path.join('results',save_dir)
     
     if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
+        Path(save_dir).mkdir(parents=True, exist_ok=True)
 
     logfile = os.path.join(save_dir,'log')
     if args.test!=1:
@@ -151,7 +171,7 @@ def main():
         net = DataParallel(net)
 
 
-    datadir = Path(args.data_dir) if args.data_dir else Path(config_training['preprocess_result_path']) 
+    datadir = Path(args.data_dir)
 
     print(f"Data dir:{datadir}, file cnt: {len([fil for fil in os.listdir(datadir) if fil.find('clean')>-1])}", flush=True)
     
@@ -166,7 +186,7 @@ def main():
 
         dataset = data.DataBowl3Detector(
             datadir,
-            load_scan_list(Path(config_training['metadata_path'] , 'test_scans.csv')),
+            load_scan_list(Path(args.metadata_dir , 'test_scans.csv')),
             config,
             phase='test',
             split_comber=split_comber)
@@ -187,7 +207,7 @@ def main():
     
     dataset = data.DataBowl3Detector(
         datadir,
-        load_scan_list(Path(config_training['metadata_path'] , 'training_scans.csv')),
+        load_scan_list(Path(args.metadata_dir, 'training_scans.csv')),
         config,
         phase = 'train')
     train_loader = DataLoader(
@@ -201,7 +221,7 @@ def main():
 
     dataset = data.DataBowl3Detector(
         datadir,
-        load_scan_list(Path(config_training['metadata_path'] , 'validation_scans.csv')),
+        load_scan_list(Path(args.metadata_dir, 'validation_scans.csv')),
         config,
         phase = 'val')
     val_loader = DataLoader(
