@@ -47,7 +47,7 @@ def load_pbb(idx: int, pbb_paths: List[Path], threshold=-1):
         pbb_path = pbb_paths[idx]
         pbb = np.load(pbb_path)
         pbb = pbb[pbb[:,0]>threshold]    
-        pbb = nms(pbb, 0.05)
+        # pbb = nms(pbb, 0.05)
         if pbb.shape[0]>0:
             return (
                 pd.DataFrame(pbb, columns=['threshold','index', 'row', 'col','diameter'])
