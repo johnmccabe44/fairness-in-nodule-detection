@@ -1,5 +1,6 @@
 import argparse
 
+from cgi import test
 from pathlib import Path
 from preprocessing import full_prep, full_prep_summit
 
@@ -171,7 +172,6 @@ def run_prepare(datapath, prep_result_path, n_worker_preprocessing, use_exsiting
 
     return _
 
-
 def run_detect(test_split, prep_result_path, bbox_result_path, detector_model, detector_param, n_gpu):
 
     # check whether gpu is available
@@ -221,7 +221,6 @@ def run_detect(test_split, prep_result_path, bbox_result_path, detector_model, d
 
     test_detect(test_loader, nod_net, get_pbb, bbox_result_path, config1, n_gpu=n_gpu)
 
-
 def run_classify(test_split, prep_result_path, bbox_result_path, classifier_model, classifier_param, outputfile):
 
         # check whether gpu is available
@@ -254,18 +253,21 @@ def run_classify(test_split, prep_result_path, bbox_result_path, classifier_mode
 if __name__ == '__main__':
     args = parse_arguments()
 
+    scan_list = get_scanlist(scanlist_path=args.scanlist_path,
+                             prep_result_path=args.prep_result_path)
+
 
     if args.run_prepare:
         _ = run_prepare(datapath=args.datapath, 
-                                prep_result_path=args.prep_result_path,
-                                n_worker_preprocessing=args.n_worker_preprocessing,
-                                use_exsiting_preprocessing=args.use_exsiting_preprocessing,
-                                summit=args.summit,
-                                scanlist_path=args.scanlist_path,
-                                metadata_path=args.metadata_path)
+                        prep_result_path=args.prep_result_path,
+                        n_worker_preprocessing=args.n_worker_preprocessing,
+                        use_exsiting_preprocessing=args.use_exsiting_preprocessing,
+                        summit=args.summit,
+                        scanlist_path=args.scanlist_path,
+                        metadata_path=args.metadata_path)
 
     if args.run_detect:
-        run_detect(scanlist_path=args.scanlist_path, 
+        run_detect(test_split=scan_list, 
                     prep_result_path=args.prep_result_path,
                     bbox_result_path=args.bbox_result_path,
                     detector_model=args.detector_model,
@@ -273,8 +275,9 @@ if __name__ == '__main__':
                     n_gpu=args.n_gpu)
         
     if args.run_classify:
-        run_classify(prep_result_path=args.prep_result_path,
-                     bbox_result_path=args.bbox_result_path,
+        run_classify(test_split=scan_list,
+                    prep_result_path=args.prep_result_path,
+                    bbox_result_path=args.bbox_result_path,
                     classifier_model=args.classifier_model,
                     classifier_param=args.classifier_param,
                     outputfile=args.outputfile)
