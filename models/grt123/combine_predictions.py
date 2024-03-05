@@ -23,9 +23,9 @@ class TooHighMetricException(Exception):
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Arguments for collating the outputs from grt123')
 
-    parser.add_argument('--metadata-path', type=str, help='Path to list of scnas to combine')
+    parser.add_argument('--scans-path', type=str, help='Path to list of scans to combine')
 
-    parser.add_argument('--metadata-stem', type=str, help='Stem of file that determines the scans and metadata file.')
+    parser.add_argument('--metadata-path', type=str, help='Path to list of metadat to combine')
 
     parser.add_argument('--bbox-result-path', type=str, help='Path to where the predictions live')
 
@@ -175,10 +175,10 @@ def main(scan_ids : List[str], metadata: pd.DataFrame, bbox_path: Path, output_p
 if __name__ == '__main__':
     args = parse_arguments()
 
-    scan_path = Path(args.metadata_path, args.metadata_stem + '_scans.csv')
+    scan_path = Path(args.scan_path)
     scans = pd.read_csv(scan_path)['scan_id'].tolist()
 
-    metadata_path = Path(args.metadata_path, args.metadata_stem + '_metadata.csv')
+    metadata_path = Path(args.metadata_path)
     metadata = pd.read_csv(metadata_path)
 
     bbox_path = Path(args.bbox_result_path)
