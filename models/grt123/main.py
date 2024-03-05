@@ -2,7 +2,6 @@ import argparse
 
 from pathlib import Path
 from preprocessing import full_prep, full_prep_summit
-from config_submit import config as config_submit
 
 import torch
 from torch.nn import DataParallel
@@ -90,6 +89,31 @@ def parse_arguments():
                         help='Path to the nodule metadata',
                         type=str)    
 
+    parser.add_argument('--detector-model',
+                        metavar='DETECTOR-MODEL',
+                        help='Path to the nodule detection model',
+                        type=str)
+    
+    parser.add_argument('--detector-param',
+                        metavar='DETECTOR-PARAM',
+                        help='Path to the nodule detection model parameters',
+                        type=str)
+    
+    parser.add_argument('--classifier-model',
+                        metavar='CLASSIFIER-MODEL',
+                        help='Path to the nodule classification model',
+                        type=str)
+    
+    parser.add_argument('--classifier-param',
+                        metavar='CLASSIFIER-PARAM',
+                        help='Path to the nodule classification model parameters',
+                        type=str)
+    
+    parser.add_argument('--outputfile',
+                        metavar='OUTPUTFILE',
+                        help='Path to the output file',
+                        type=str)
+
     args = parser.parse_args()
     return args    
 
@@ -119,99 +143,94 @@ def test_casenet(model,testset, device):
     predlist = np.concatenate(predlist)
     return predlist  
 
-def main(datapath, prep_result_path, bbox_result_path, n_gpu, n_worker_preprocessing, use_exsiting_preprocessing, 
-         run_prepare, run_detect, run_classify, summit, scanlist_path=None, metadata_path=None):
-    
-    #datapath = os.path.join(config_submit['datapath'], 'mhd' if summit else 'dicom')
-    #prep_result_path = os.path.join(config_submit['preprocess_result_path'], 'mhd' if summit else 'dicom')
-    #bbox_result_path = os.path.join(config_submit['bbox_result_path'], 'mhd' if summit else 'dicom')
-    
-    #run_prepare = config_submit['run_prepare']
-    #run_detect = config_submit['run_detect']
-    #run_classify = config_submit['run_classify']
+def get_scanlist(scanlist_path, prep_result_path):
 
-
-    if run_prepare:
-
-        if summit:
-            _ = full_prep_summit(data_path=datapath,
-                                        prep_folder=prep_result_path,
-                                        scanlist_path=scanlist_path,
-                                        n_worker=n_worker_preprocessing,
-                                        use_existing=use_exsiting_preprocessing,
-                                        metadata_path=metadata_path)
-        else:
-            _ = full_prep(datapath,
-                                prep_result_path,
-                                n_worker=n_worker_preprocessing,
-                                use_existing=use_exsiting_preprocessing,
-                                metadata_path=metadata_path)
-
-    else:
-        _ = [mhd for mhd in os.listdir(datapath) if mhd.endswith('.mhd')]
-
-
-    testsplit = [
+    return [
         scan_id
         for scan_id in pandas.read_csv(scanlist_path)['scan_id'].tolist()
         if os.path.exists(os.path.join(prep_result_path, scan_id + '_clean.npy'))
     ]
-    
+
+def run_prepare(datapath, prep_result_path, n_worker_preprocessing, use_exsiting_preprocessing, summit, scanlist_path, metadata_path):
+
+    if summit:
+        _ = full_prep_summit(data_path=datapath,
+                                    prep_folder=prep_result_path,
+                                    scanlist_path=scanlist_path,
+                                    n_worker=n_worker_preprocessing,
+                                    use_existing=use_exsiting_preprocessing,
+                                    metadata_path=metadata_path)
+    else:
+        _ = full_prep(datapath,
+                            prep_result_path,
+                            n_worker=n_worker_preprocessing,
+                            use_existing=use_exsiting_preprocessing,
+                            metadata_path=metadata_path)
+
+
+
+    return _
+
+
+def run_detect(test_split, prep_result_path, bbox_result_path, detector_model, detector_param, n_gpu):
+
     # check whether gpu is available
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
-    if run_detect:
+    nodmodel = import_module(detector_model.split('.py')[0])
+    config1, nod_net, loss, get_pbb = nodmodel.get_model()
+    checkpoint = torch.load(detector_param, encoding='latin1')
+    nod_net.load_state_dict(checkpoint['state_dict'])
 
-        nodmodel = import_module(config_submit['detector_model'].split('.py')[0])
-        config1, nod_net, loss, get_pbb = nodmodel.get_model()
-        checkpoint = torch.load(config_submit['detector_param'])
-        nod_net.load_state_dict(checkpoint['state_dict'])
+    #torch.cuda.set_device(0)
+    #nod_net = nod_net.cuda()
+    #cudnn.benchmark = True
+    #nod_net = DataParallel(nod_net)
 
-        #torch.cuda.set_device(0)
-        #nod_net = nod_net.cuda()
-        #cudnn.benchmark = True
-        #nod_net = DataParallel(nod_net)
+    nod_net = nod_net.to(device)
+    if use_cuda:
+        cudnn.benchmark = True
+        nod_net = DataParallel(nod_net)
 
-        nod_net = nod_net.to(device)
-        if use_cuda:
-            cudnn.benchmark = True
-            nod_net = DataParallel(nod_net)
+    if not os.path.exists(bbox_result_path):
+        Path(bbox_result_path).mkdir(parents=True, exist_ok=True)
 
-        if not os.path.exists(bbox_result_path):
-            Path(bbox_result_path).mkdir(parents=True, exist_ok=True)
+    #testsplit = [f.split('_clean')[0] for f in os.listdir(prep_result_path) if '_clean' in f]
 
-        #testsplit = [f.split('_clean')[0] for f in os.listdir(prep_result_path) if '_clean' in f]
- 
-        margin = 32
-        sidelen = 144
-        config1['datadir'] = prep_result_path
-        split_comber = SplitComb(
-                            sidelen,config1['max_stride'],
-                            config1['stride'],
-                            margin,pad_value= config1['pad_value']
-                        )
+    margin = 32
+    sidelen = 144
+    config1['datadir'] = prep_result_path
+    split_comber = SplitComb(
+                        sidelen,config1['max_stride'],
+                        config1['stride'],
+                        margin,pad_value= config1['pad_value']
+                    )
 
-        dataset = DataBowl3Detector(testsplit,
-                                    config1,phase='test',
-                                    split_comber=split_comber
-                                )
-        
+    dataset = DataBowl3Detector(test_split,
+                                config1,phase='test',
+                                split_comber=split_comber
+                            )
+    
 
-        test_loader = DataLoader(dataset,
-                                batch_size = 1,
-                                shuffle = False,
-                                num_workers = args.n_worker_preprocessing,
-                                pin_memory=False,
-                                collate_fn=collate)
+    test_loader = DataLoader(dataset,
+                            batch_size = 1,
+                            shuffle = False,
+                            num_workers = args.n_worker_preprocessing,
+                            pin_memory=False,
+                            collate_fn=collate)
 
-        test_detect(test_loader, nod_net, get_pbb, bbox_result_path, config1, n_gpu=n_gpu)
+    test_detect(test_loader, nod_net, get_pbb, bbox_result_path, config1, n_gpu=n_gpu)
 
 
-    if run_classify:
-        casemodel = import_module(config_submit['classifier_model'].split('.py')[0])
+def run_classify(test_split, prep_result_path, bbox_result_path, classifier_model, classifier_param, outputfile):
+
+        # check whether gpu is available
+        use_cuda = torch.cuda.is_available()
+        device = torch.device("cuda" if use_cuda else "cpu")        
+        casemodel = import_module(classifier_model.split('.py')[0])
         casenet = casemodel.CaseNet(topk=5)
         config2 = casemodel.config
-        checkpoint = torch.load(config_submit['classifier_param'], encoding='latin1')
+        checkpoint = torch.load(classifier_param, encoding='latin1')
         casenet.load_state_dict(checkpoint['state_dict'])
 
         # torch.cuda.set_device(0)
@@ -222,29 +241,40 @@ def main(datapath, prep_result_path, bbox_result_path, n_gpu, n_worker_preproces
         if use_cuda:
             casenet = DataParallel(casenet)
 
-        filename = config_submit['outputfile']
+        filename = outputfile
         
         config2['bboxpath'] = bbox_result_path
         config2['datadir'] = prep_result_path
 
-        dataset = DataBowl3Classifier(testsplit, config2, phase = 'test')
+        dataset = DataBowl3Classifier(test_split, config2, phase = 'test')
         predlist = test_casenet(casenet,dataset, device).T
-        df = pandas.DataFrame({'id':testsplit, 'cancer':predlist})
+        df = pandas.DataFrame({'id':test_split, 'cancer':predlist})
         df.to_csv(filename,index=False)
 
 if __name__ == '__main__':
     args = parse_arguments()
 
-    main(datapath=args.datapath, 
-         prep_result_path=args.prep_result_path,
-         bbox_result_path=args.bbox_result_path,
-         n_gpu=args.n_gpu,
-         n_worker_preprocessing=args.n_worker_preprocessing,
-         use_exsiting_preprocessing=args.use_exsiting_preprocessing,
-         run_prepare=args.run_prepare,
-         run_detect=args.run_detect,
-         run_classify=args.run_classify,
-         summit=args.summit,
-         scanlist_path=args.scanlist_path,
-         metadata_path=args.metadata_path
-    )
+
+    if args.run_prepare:
+        _ = run_prepare(datapath=args.datapath, 
+                                prep_result_path=args.prep_result_path,
+                                n_worker_preprocessing=args.n_worker_preprocessing,
+                                use_exsiting_preprocessing=args.use_exsiting_preprocessing,
+                                summit=args.summit,
+                                scanlist_path=args.scanlist_path,
+                                metadata_path=args.metadata_path)
+
+    if args.run_detect:
+        run_detect(scanlist_path=args.scanlist_path, 
+                    prep_result_path=args.prep_result_path,
+                    bbox_result_path=args.bbox_result_path,
+                    detector_model=args.detector_model,
+                    detector_param=args.detector_param,
+                    n_gpu=args.n_gpu)
+        
+    if args.run_classify:
+        run_classify(prep_result_path=args.prep_result_path,
+                     bbox_result_path=args.bbox_result_path,
+                    classifier_model=args.classifier_model,
+                    classifier_param=args.classifier_param,
+                    outputfile=args.outputfile)
