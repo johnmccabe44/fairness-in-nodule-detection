@@ -175,7 +175,7 @@ def main(scan_ids : List[str], metadata: pd.DataFrame, bbox_path: Path, output_p
 if __name__ == '__main__':
     args = parse_arguments()
 
-    scan_path = Path(args.scan_path)
+    scan_path = Path(args.scans_path)
     scans = pd.read_csv(scan_path)['scan_id'].tolist()
 
     metadata_path = Path(args.metadata_path)
