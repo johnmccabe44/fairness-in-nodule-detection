@@ -66,8 +66,6 @@ class DataBowl3Detector(Dataset):
                         if t[3]>sizelim3:
                             self.bboxes+=[[np.concatenate([[i],t])]]*4
 
-            print(self.phase, len(self.bboxes), flush=True)
-            print(self.bboxes[:10], flush=True)
 
             self.bboxes = np.concatenate(self.bboxes, axis=0)
 
