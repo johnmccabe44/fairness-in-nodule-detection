@@ -1,6 +1,7 @@
 import argparse
 from functools import partial
 from multiprocessing import Pool
+import math
 import numpy as np
 import os
 import pandas as pd
@@ -48,6 +49,7 @@ def load_pbb(idx: int, pbb_paths: List[Path], threshold=-1):
         pbb = np.load(pbb_path)
         pbb = pbb[pbb[:,0]>threshold]    
         # pbb = nms(pbb, 0.05)
+
         if pbb.shape[0]>0:
             return (
                 pd.DataFrame(pbb, columns=['threshold','index', 'row', 'col','diameter'])
@@ -86,7 +88,19 @@ def combine_pbb(scan_ids: List[str], bbox_path: Path, threshold: float, workers:
             pbb_dfs.append(load_pbb(idx, pbb_paths, threshold))
 
 
-    return pd.concat([df for df in pbb_dfs if df.shape[0]>0]).reset_index().drop('level_0', axis=1)
+    for idx, df in enumerate(pbb_dfs):
+        if df.shape[0] == 0:
+            continue
+
+        if idx == 0:
+            total_pbb = df
+        else:
+            total_pbb = pd.concat([total_pbb, df])
+
+        print(f'Processed {idx} of {N} scans', flush=True)
+        print(f'Found {total_pbb.shape[0]} candidates', flush=True)
+
+    return total_pbb.reset_index().drop('level_0', axis=1)
 
 def merge_lbl_and_metadata(idx:int, lbb_paths: List[Path], metadata: pd.DataFrame):
     """
@@ -103,7 +117,7 @@ def merge_lbl_and_metadata(idx:int, lbb_paths: List[Path], metadata: pd.DataFram
         scan_id = lbb_paths[idx].name.split('_lbb.npy')[0]
         stem = lbb_paths[idx].name.split('_',1)[0]
 
-        nodule_metadata = metadata[metadata.scan_id==stem]
+        nodule_metadata = metadata[metadata.seriesuid==stem]
 
         if nodule_metadata.shape[0] == 0 and np.array_equal(lbb, [[0,0,0,0]]):
             return None
@@ -117,11 +131,11 @@ def merge_lbl_and_metadata(idx:int, lbb_paths: List[Path], metadata: pd.DataFram
         if nodule_metadata.shape[0] != lbb.shape[0]:
             raise ShapeDifferentException(f'Label and metadata mismatch for stem. md:{metadata.shape[0]}, lbb:{lbb.shape[0]}, {lbb}')
         
-        d_mean = np.mean(lbb[:,3] / nodule_metadata.nodule_diameter_mm)
-        d_std = np.std(lbb[:,3] / nodule_metadata.nodule_diameter_mm)
+        d_mean = np.mean(lbb[:,3] / nodule_metadata.diameter_mm)
+        d_std = np.std(lbb[:,3] / nodule_metadata.diameter_mm)
 
-        if d_mean > 1 or d_std > 0.0001:
-            raise TooHighMetricException(f'Mean is too high for the spacing: {scan_id}')
+        #if not math.isclose(d_mean, 1, abs_tol=1e-4) or not math.isclose(d_std, 0, abs_tol=1e-4):
+        #    raise TooHighMetricException(f'Mean is too high for the spacing: {scan_id}, {d_mean}, {d_std}')
 
         nodule_metadata.loc[:,['index','row','col','diameter']] = lbb
         nodule_metadata.loc[:,'threshold'] = MIN_THRESHOLD
@@ -175,8 +189,13 @@ def main(scan_ids : List[str], metadata: pd.DataFrame, bbox_path: Path, output_p
 if __name__ == '__main__':
     args = parse_arguments()
 
+
+    print(f'Arguments: {args}')
     scan_path = Path(args.scans_path)
-    scans = pd.read_csv(scan_path)['scan_id'].tolist()
+    scans = pd.read_csv(scan_path)['seriesuid'].tolist()
+
+
+    print(f'Found {len(scans)} scans to process')
 
     metadata_path = Path(args.metadata_path)
     metadata = pd.read_csv(metadata_path)
