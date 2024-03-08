@@ -48,7 +48,7 @@ def load_pbb(idx: int, pbb_paths: List[Path], threshold=-1):
         pbb_path = pbb_paths[idx]
         pbb = np.load(pbb_path)
         pbb = pbb[pbb[:,0]>threshold]    
-        # pbb = nms(pbb, 0.05)
+        pbb = nms(pbb, 0.05)
 
         if pbb.shape[0]>0:
             return (
@@ -96,9 +96,6 @@ def combine_pbb(scan_ids: List[str], bbox_path: Path, threshold: float, workers:
             total_pbb = df
         else:
             total_pbb = pd.concat([total_pbb, df])
-
-        print(f'Processed {idx} of {N} scans', flush=True)
-        print(f'Found {total_pbb.shape[0]} candidates', flush=True)
 
     return total_pbb.reset_index().drop('level_0', axis=1)
 
