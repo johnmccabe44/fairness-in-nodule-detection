@@ -28,6 +28,8 @@ def parse_arguments():
 
     parser.add_argument('--is-folds', action='store_true', help='If the data is in folds')
 
+    parser.add_argument('--metadata-path', type=str, help='Path to where the metadata files live')
+
     parser.add_argument('--scan-name', type=str, help='Name of the scan file')
 
     parser.add_argument('--metadata-name', type=str, help='Name of the metadata file')
