@@ -198,7 +198,7 @@ if __name__ == '__main__':
             for scan_file_path in Path(args.metadata_path).glob(f'{args.scan_name}')
         ]).scan_id.values
     else:
-        scan_path = Path(args.scans_path)
+        scan_path = Path(args.scan_name)
         scans = pd.read_csv(scan_path).scan_id.values
 
     if args.is_folds:
@@ -207,7 +207,7 @@ if __name__ == '__main__':
             for metadata_file_path in Path(args.metadata_path).glob(f'{args.metadata_name}')
         ])
     else:
-        metadata_path = Path(args.metadata_path)
+        metadata_path = Path(args.metadata_name)
         metadata = pd.read_csv(metadata_path)
 
     bbox_path = Path(args.bbox_result_path)
