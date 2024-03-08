@@ -197,7 +197,7 @@ if __name__ == '__main__':
     if args.is_folds:
         scans = pd.concat([
             pd.read_csv(scan_file_path)
-            for scan_file_path in Path(args.metadata_path).glob(f'{args.scan_name}')
+            for scan_file_path in Path(args.metadata_path).rglob(f'{args.scan_name}')
         ]).scan_id.values
     else:
         scan_path = Path(args.scan_name)
