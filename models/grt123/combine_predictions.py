@@ -75,6 +75,8 @@ def combine_pbb(scan_ids: List[str], bbox_path: Path, threshold: float, workers:
     ]
     N = len(pbb_paths)
 
+    print(f'Found {N} pbb files to process')
+
     if workers>1:
         partial_read_pbb = partial(load_pbb, pbb_paths=pbb_paths, threshold=threshold)
         
