@@ -24,9 +24,13 @@ class TooHighMetricException(Exception):
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Arguments for collating the outputs from grt123')
 
-    parser.add_argument('--scans-path', type=str, help='Path to list of scans to combine')
+    parser.add_argument('--name', type=str, help='Name of the model')
 
-    parser.add_argument('--metadata-path', type=str, help='Path to list of metadat to combine')
+    parser.add_argument('--is-folds', action='store_true', help='If the data is in folds')
+
+    parser.add_argument('--scan-name', type=str, help='Name of the scan file')
+
+    parser.add_argument('--metadata-name', type=str, help='Name of the metadata file')
 
     parser.add_argument('--bbox-result-path', type=str, help='Path to where the predictions live')
 
@@ -116,7 +120,7 @@ def merge_lbl_and_metadata(idx:int, lbb_paths: List[Path], metadata: pd.DataFram
         scan_id = lbb_paths[idx].name.split('_lbb.npy')[0]
         stem = lbb_paths[idx].name.split('_',1)[0]
 
-        nodule_metadata = metadata[metadata.seriesuid==stem]
+        nodule_metadata = metadata[metadata.scan_id==stem]
 
         if nodule_metadata.shape[0] == 0 and np.array_equal(lbb, [[0,0,0,0]]):
             return None
@@ -178,35 +182,41 @@ def combine_metadata(scan_ids: List[str], metadata: pd.DataFrame, bbox_path: Pat
 
     return pd.concat(md_and_lbb).reset_index().rename(columns={'level_0' : 'id'})
 
-def main(scan_ids : List[str], metadata: pd.DataFrame, bbox_path: Path, output_path: Path, threshold: float, workers: int):
+def main(name: str, scan_ids : List[str], metadata: pd.DataFrame, bbox_path: Path, output_path: Path, threshold: float, workers: int):
     
-    combine_pbb(scan_ids, bbox_path, threshold, workers).to_csv(Path(output_path, 'predictions.csv'), index=False)
+    combine_pbb(scan_ids, bbox_path, threshold, workers).to_csv(Path(output_path, f'{name}_predictions.csv'), index=False)
     
-    combine_metadata(scan_ids, metadata, bbox_path, workers).to_csv(Path(output_path, 'metadata.csv'), index=False)
+    combine_metadata(scan_ids, metadata, bbox_path, workers).to_csv(Path(output_path, f'{name}_metadata.csv'), index=False)
 
 
 if __name__ == '__main__':
     args = parse_arguments()
 
+    if args.is_folds:
+        scans = pd.concat([
+            pd.read_csv(scan_file_path)
+            for scan_file_path in Path(args.metadata_path).glob(f'{args.scan_name}')
+        ]).scan_id.values
+    else:
+        scan_path = Path(args.scans_path)
+        scans = pd.read_csv(scan_path).scan_id.values
 
-    print(f'Arguments: {args}')
-    scan_path = Path(args.scans_path)
-    scans = pd.read_csv(scan_path)['seriesuid'].tolist()
-
-
-    print(f'Found {len(scans)} scans to process')
-
-    metadata_path = Path(args.metadata_path)
-    metadata = pd.read_csv(metadata_path)
+    if args.is_folds:
+        metadata = pd.concat([
+            pd.read_csv(metadata_file_path)
+            for metadata_file_path in Path(args.metadata_path).glob(f'{args.metadata_name}')
+        ])
+    else:
+        metadata_path = Path(args.metadata_path)
+        metadata = pd.read_csv(metadata_path)
 
     bbox_path = Path(args.bbox_result_path)
 
     output_path = Path(args.output_path)
     Path(output_path).mkdir(parents=True, exist_ok=True)
 
-
     threshold = args.threshold
     
     workers = args.workers
 
-    main(scans, metadata, bbox_path, output_path, threshold, workers)
+    main(args.name, scans, metadata, bbox_path, output_path, threshold, workers)
