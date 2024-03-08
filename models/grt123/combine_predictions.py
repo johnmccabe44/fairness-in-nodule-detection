@@ -206,7 +206,7 @@ if __name__ == '__main__':
     if args.is_folds:
         metadata = pd.concat([
             pd.read_csv(metadata_file_path)
-            for metadata_file_path in Path(args.metadata_path).glob(f'{args.metadata_name}')
+            for metadata_file_path in Path(args.metadata_path).rglob(f'{args.metadata_name}')
         ])
     else:
         metadata_path = Path(args.metadata_name)
