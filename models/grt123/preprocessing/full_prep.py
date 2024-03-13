@@ -14,7 +14,7 @@ from skimage import measure
 from skimage.morphology import convex_hull_image
 from pathlib import Path
 
-from .step1 import step1_python, step1_python_summit
+from step1 import step1_python, step1_python_summit
 
 
 def process_mask(mask):
