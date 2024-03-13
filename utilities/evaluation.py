@@ -29,7 +29,7 @@ ethnicity_label = 'ethnic_group'
 
 # plot settings
 FROC_minX = 0.125 # Mininum value of x-axis of FROC curve
-FROC_maxX = 8 # Maximum value of x-axis of FROC curve
+FROC_maxX = 128 # Maximum value of x-axis of FROC curve
 bLogPlot = True
 
 class NoduleFinding(object):
@@ -493,10 +493,10 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
         
         if bLogPlot:
             plt.xscale('log', base=2)
-            ax.xaxis.set_major_formatter(FixedFormatter([0.125,0.25,0.5,1,2,4,8]))
+            ax.xaxis.set_major_formatter(FixedFormatter([0.125,0.25,0.5,1,2,4,8, 16, 32, 64, 128]))
         
         # set your ticks manually
-        ax.xaxis.set_ticks([0.125,0.25,0.5,1,2,4,8])
+        ax.xaxis.set_ticks([0.125,0.25,0.5,1,2,4,8, 16, 32, 64, 128])
         ax.yaxis.set_ticks(np.arange(0, 1.1, 0.1))
         plt.grid(visible=True, which='both')
         plt.tight_layout()
@@ -600,7 +600,7 @@ def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,serie
                 outputDir,
                 allNodules,
                 os.path.splitext(os.path.basename(results_filename))[0],
-                maxNumberOfCADMarks=100,
+                maxNumberOfCADMarks=500,
                 performBootstrapping=bPerformBootstrapping,
                 numberOfBootstrapSamples=bNumberOfBootstrapSamples,
                 confidence=bConfidence,
