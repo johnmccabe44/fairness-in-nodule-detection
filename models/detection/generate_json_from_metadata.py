@@ -78,27 +78,16 @@ def main(name, cache_path, metadata_path, output_path, max_scans_per_ds={'traini
     with open(Path(output_path, f'dataset_{name}.json'), 'w') as f:
         json.dump(json.loads(json.dumps(dataset_json).replace('.mhd','.nii.gz')),f,indent=4)
 
+
+
+    for data_split in dataset_json.keys():
+        logging.info(f'{data_split} : {len(dataset_json[data_split])}')
+
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--name", help="Name of the dataset")
-    parser.add_argument("--cache-path", help="Path to the cache")
-    parser.add_argument("--metadata-path", help="Path to the metadata")
-    parser.add_argument("--output-path", help="Path to the output")
-    parser.add_argument("--max-training-scans", type=int, help="Maximum number of scans for training")
-    parser.add_argument("--max-validation-scans", type=int, help="Maximum number of scans for validation")
-    parser.add_argument("--max-test-scans", type=int, help="Maximum number of scans for test")
+    name                = 'partial' 
+    cache_path          = '/media/jmccabe/HDD Storage/Data/cache/sota/detection/summit'
+    metadata_path       = '/home/jmccabe/Projects/SOTAEvaluationNoduleDetection/metadata/SUMMIT/partial'
+    output_path         = '/home/jmccabe/Projects/SOTAEvaluationNoduleDetection/models/detection/datasplits/SUMMIT/partial'
 
-    args = parser.parse_args()
-
-    name = args.name
-    cache_path = args.cache_path
-    metadata_path = args.metadata_path
-    output_path = args.output_path
-    max_scans_per_ds = {
-        'training': args.max_training_scans,
-        'validation': args.max_validation_scans,
-        'test': args.max_test_scans
-    }
-
-    main(name, cache_path, metadata_path, output_path, max_scans_per_ds)
+    main(name, cache_path, metadata_path, output_path)
