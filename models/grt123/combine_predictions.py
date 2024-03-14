@@ -215,6 +215,9 @@ if __name__ == '__main__':
     if not 'scan_id' in metadata.columns and 'participant_id' in metadata.columns:
         metadata['scan_id'] = metadata['participant_id'] + '_' + '_Y0_BASELINE_A'
 
+
+    print(metadata.head())
+
     bbox_path = Path(args.bbox_result_path)
 
     output_path = Path(args.output_path)
