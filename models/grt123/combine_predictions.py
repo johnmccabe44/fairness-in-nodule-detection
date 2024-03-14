@@ -215,6 +215,13 @@ if __name__ == '__main__':
     if not 'scan_id' in metadata.columns and 'participant_id' in metadata.columns:
         metadata['scan_id'] = metadata['participant_id'] + '_Y0_BASELINE_A'
 
+        metadata = metadata.rename(columns={
+            'nodule_x_coordinate' : 'row',
+            'nodule_y_coordinate' : 'col',
+            'nodule_z_coordinate' : 'index',
+            'nodule_diameter_mm' : 'diameter'
+        })
+
 
     print(metadata.head())
 
