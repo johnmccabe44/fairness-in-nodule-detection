@@ -122,7 +122,7 @@ def merge_lbl_and_metadata(idx:int, lbb_paths: List[Path], metadata: pd.DataFram
         scan_id = lbb_paths[idx].name.split('_lbb.npy')[0]
         stem = lbb_paths[idx].name.split('_',1)[0]
 
-        nodule_metadata = metadata[metadata.scan_id==stem]
+        nodule_metadata = metadata[metadata.scan_id==scan_id]
 
         if nodule_metadata.shape[0] == 0 and np.array_equal(lbb, [[0,0,0,0]]):
             return None
