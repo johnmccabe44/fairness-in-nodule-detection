@@ -212,6 +212,9 @@ if __name__ == '__main__':
         metadata_path = Path(args.metadata_name)
         metadata = pd.read_csv(metadata_path)
 
+    if not 'scan_id' in metadata.columns and 'participant_id' in metadata.columns:
+        metadata['scan_id'] = metadata['participant_id'] + '_' + '_Y0_BASELINE_A'
+
     bbox_path = Path(args.bbox_result_path)
 
     output_path = Path(args.output_path)
