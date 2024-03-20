@@ -305,9 +305,6 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
         except KeyError:
             noduleAnnots = []
 
-        if seriesuid == '1.3.6.1.4.1.14519.5.2.1.6279.6001.104562737760173137525888934217':
-            print('noduleAnnots:', noduleAnnots)
-
         # - loop over the nodule annotations
         for noduleAnnot in noduleAnnots:
             # increment the number of nodules
@@ -606,7 +603,7 @@ def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,serie
                 confidence=bConfidence,
                 filter=filter)
 
-    return fps_itp, sens_itp
+    return (fps, sens, thresholds, fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up, fps_itp, sens_itp)
 
 if __name__ == '__main__':
 
