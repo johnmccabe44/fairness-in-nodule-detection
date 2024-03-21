@@ -578,7 +578,8 @@ def collect(annotations_filename,annotations_excluded_filename,seriesuids_filena
     return (allNodules, seriesUIDs)
     
     
-def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,seriesuids_filename,results_filename,outputDir, filter):
+def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,seriesuids_filename,
+                        results_filename, outputDir, filter, perform_bootstrapping=True):
     '''
     function to load annotations and evaluate a CAD algorithm
     @param annotations_filename: list of annotations
@@ -588,6 +589,10 @@ def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,serie
     @param outputDir: output directory
     '''
     
+
+    if perform_bootstrapping is None:
+        perform_bootstrapping = bPerformBootstrapping
+
     print(annotations_filename)
     
     (allNodules, seriesUIDs) = collect(annotations_filename, annotations_excluded_filename, seriesuids_filename)
@@ -598,7 +603,7 @@ def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,serie
                 allNodules,
                 os.path.splitext(os.path.basename(results_filename))[0],
                 maxNumberOfCADMarks=500,
-                performBootstrapping=bPerformBootstrapping,
+                performBootstrapping=perform_bootstrapping,
                 numberOfBootstrapSamples=bNumberOfBootstrapSamples,
                 confidence=bConfidence,
                 filter=filter)
@@ -621,5 +626,11 @@ if __name__ == '__main__':
     outputDir                     = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/results'
 
     # execute only if run as a script
-    noduleCADEvaluation(annotations_filename, annotations_excluded_filename, seriesuids_filename, results_filename, outputDir, 'filter_None')
+    noduleCADEvaluation(annotations_filename,
+                        annotations_excluded_filename,
+                        seriesuids_filename,
+                        results_filename,
+                        outputDir,
+                        'filter_None')
+    
     print("Finished!")
