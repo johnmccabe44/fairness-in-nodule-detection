@@ -5,10 +5,10 @@ import shutil
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument('datasplit_json', type=str, help='Path to the datasplit.json file')
-    parser.add_argument('dataset', type=str, help='Name of the dataset')
-    parser.add_argument('src_data_dir', type=str, help='Source directory')
-    parser.add_argument('dest_data_dir', type=str, help='Destination directory')
+    parser.add_argument('--datasplit-json', type=str, help='Path to the datasplit.json file')
+    parser.add_argument('--dataset', type=str, help='Name of the dataset')
+    parser.add_argument('--src-data-dir', type=str, help='Source directory')
+    parser.add_argument('--dest-data-dir', type=str, help='Destination directory')
     parser.add_argument('--throttle', type=int, default=-1, help='Number of images to copy')
     return parser.parse_args()
 
