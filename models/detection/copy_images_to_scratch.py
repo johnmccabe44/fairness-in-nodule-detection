@@ -1,7 +1,9 @@
 import argparse
 import json
+from multiprocessing import process
 from pathlib import Path
 import shutil
+import multiprocessing
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -13,30 +15,33 @@ def parse_arguments():
     return parser.parse_args()
 
 def main(datasplit_json, dataset, source_dir, destination_dir, throttle=-1):
-
     # Load the datasplit.json file
     with open(datasplit_json, 'r') as f:
         datasplit = json.load(f)
 
+    # Create a multiprocessing pool
+    pool = multiprocessing.Pool(processses=4)
+
     # Iterate over the images in the datasplit
     for image_json in datasplit[dataset]:
-
         parent_folder, nifti_file = image_json['image'].split('/')
-                
-        # Construct the source and destination paths
         source_path = f'{source_dir}/{parent_folder}/{nifti_file}'
-
         Path(f'{destination_dir}/{parent_folder}').mkdir(parents=True, exist_ok=True)
         destination_path = f'{destination_dir}/{parent_folder}/{nifti_file}'
-        
-        # Copy the image from source to destination
-        shutil.copy2(source_path, destination_path)
+
+        # Use multiprocessing to copy the image from source to destination
+        pool.apply_async(shutil.copy2, (source_path, destination_path))
 
         if throttle > 0:
             throttle -= 1
             if throttle == 0:
                 break
 
+    # Close the multiprocessing pool and wait for all processes to finish
+    pool.close()
+    pool.join()
+
+    print('Done copying images to scratch')
 if __name__ == '__main__':
     args = parse_arguments()
     datasplit_json = args.datasplit_json
