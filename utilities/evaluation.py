@@ -1,8 +1,10 @@
 
 import csv
+from pathlib import Path
 import os
 import math
 import sys
+from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter,LogFormatter,StrMethodFormatter,FixedFormatter
@@ -155,8 +157,8 @@ def computeFROC_bootstrap(FROCGTList,FROCProbList,FPDivisorList,FROCImList,exclu
         else:
             scanToCandidatesDict[seriesuid] = np.concatenate((scanToCandidatesDict[seriesuid],candidate),axis = 1)
 
-    for i in range(numberOfBootstrapSamples):
-        print('computing FROC: bootstrap %d/%d' % (i,numberOfBootstrapSamples))
+    for i in tqdm(range(numberOfBootstrapSamples)):
+        #print('computing FROC: bootstrap %d/%d' % (i,numberOfBootstrapSamples))
         # Generate a bootstrapped set
         btpsamp = generateBootstrapSet(scanToCandidatesDict,FROCImList_np)
         fps, sens, thresholds = computeFROC(btpsamp[0,:],btpsamp[1,:],len(FROCImList_np),btpsamp[2,:])
@@ -486,7 +488,7 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
         plt.xlabel('Average number of false positives per scan')
         plt.ylabel('Sensitivity')
         plt.legend(loc='lower right')
-        plt.title('FROC performance - %s - %s' % (CADSystemName, filter))
+        plt.title('FROC performance%s' % (filter))
         
         if bLogPlot:
             plt.xscale('log', base=2)
@@ -589,6 +591,7 @@ def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,serie
     @param outputDir: output directory
     '''
     
+    Path(outputDir).mkdir(parents=True, exist_ok=True)
 
     if perform_bootstrapping is None:
         perform_bootstrapping = bPerformBootstrapping
@@ -624,6 +627,7 @@ if __name__ == '__main__':
     seriesuids_filename           = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/scanslist.csv'
     results_filename              = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/predictions.csv'
     outputDir                     = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/results'
+
 
     # execute only if run as a script
     noduleCADEvaluation(annotations_filename,
