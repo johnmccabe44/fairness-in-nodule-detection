@@ -10,18 +10,15 @@
 # limitations under the License.
 
 import argparse
-import datetime
 import gc
 import json
 import logging
-import os
 import sys
 import time
 
 import cv2
 import numpy as np
 import torch
-from torch.nn import DataParallel
 from generate_transforms import (
     generate_detection_train_transform,
     generate_detection_val_transform,
