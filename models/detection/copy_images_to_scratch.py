@@ -20,7 +20,7 @@ def main(datasplit_json, dataset, source_dir, destination_dir, throttle=-1):
         datasplit = json.load(f)
 
     # Create a multiprocessing pool
-    pool = multiprocessing.Pool(processses=4)
+    pool = multiprocessing.Pool(processes=4)
 
     # Iterate over the images in the datasplit
     for image_json in datasplit[dataset]:
