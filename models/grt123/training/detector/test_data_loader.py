@@ -7,14 +7,6 @@ from pathlib import Path
 from torch.utils.data import DataLoader
 import tqdm
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', datefmt='%m-%d %H:%M:%S',
-    handlers=[
-        logging.FileHandler('test_data_loader.log'),
-        logging.StreamHandler()
-    ])
-
 def load_scan_list(path_to_scan_list):
     if path_to_scan_list.as_posix().endswith('.csv'):
         with open(path_to_scan_list, 'r') as f:
@@ -30,11 +22,15 @@ def main(datadir, metadata_dir):
     model = import_module('res18')
     config, net, loss, get_pbb = model.get_model()
 
+    print('Loading training data')
+
     trn_dataset = data.DataBowl3Detector(
         datadir,
         load_scan_list(Path(metadata_dir, 'training_scans.csv')),
         config,
         phase = 'train')
+
+    print('Loading validation data')
 
     val_dataset = data.DataBowl3Detector(
         datadir,
@@ -42,10 +38,16 @@ def main(datadir, metadata_dir):
         config,
         phase = 'val')
     
+    print('Training data size:', trn_dataset.__len__())
+    print('Validation data size:', val_dataset.__len__())
+
+    print('Starting training')
+    
     for epoch in tqdm(range(100)):
         for idx in trn_dataset.scan_list:
             pass
 
+    print('Starting validation')
     for idx in tqdm(range(val_dataset.__len__())):
         pass
 
