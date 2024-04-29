@@ -11,7 +11,7 @@ import warnings
 from scipy.ndimage.interpolation import rotate
 
 class DataBowl3Detector(Dataset):
-    def __init__(self, data_dir, scan_list, config, phase = 'train',split_comber=None):
+    def __init__(self, data_dir, scan_list, config, phase = 'train',split_comber=None, debug=False):
             
         assert(phase == 'train' or phase == 'val' or phase == 'test')
         self.phase = phase
@@ -113,6 +113,8 @@ class DataBowl3Detector(Dataset):
             sample = (sample.astype(np.float32)-128)/128
             #if filename in self.kagglenames and self.phase=='train':
             #    label[label==-1]=0
+
+            print(f'{filename},{sample.shape},{label.shape}, {target.shape}, {bboxes.shape}', flush=True)
             return torch.from_numpy(sample), torch.from_numpy(label), coord
         else:
             imgs = np.load(self.filenames[idx])
@@ -134,6 +136,7 @@ class DataBowl3Detector(Dataset):
                                                    margin = self.split_comber.margin/self.stride)
             assert np.all(nzhw==nzhw2)
             imgs = (imgs.astype(np.float32)-128)/128
+            print(f'{self.filenames[idx]},{imgs.shape},{coord2.shape}, {bboxes.shape}', flush=True)
             return torch.from_numpy(imgs), bboxes, torch.from_numpy(coord2), np.array(nzhw)
 
     def __len__(self):
@@ -300,6 +303,7 @@ class LabelMapping(object):
 
         for bbox in bboxes:
             for i, anchor in enumerate(anchors):
+                print(filename, bbox, anchor, th_neg, oz, oh, ow, flush=True)                
                 iz, ih, iw = select_samples(bbox, anchor, th_neg, oz, oh, ow)
                 label[iz, ih, iw, i, 0] = 0
 
@@ -344,6 +348,10 @@ class LabelMapping(object):
 def select_samples(bbox, anchor, th, oz, oh, ow):
     z, h, w, d = bbox
     max_overlap = min(d, anchor)
+
+    if max_overlap <= 0:
+        print(['max_overlap', max_overlap])
+
     min_overlap = np.power(max(d, anchor), 3) * th / max_overlap / max_overlap
     if min_overlap > max_overlap:
         return np.zeros((0,), np.int64), np.zeros((0,), np.int64), np.zeros((0,), np.int64)

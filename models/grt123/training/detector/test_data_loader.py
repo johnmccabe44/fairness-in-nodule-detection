@@ -1,0 +1,46 @@
+
+from doctest import debug
+import data
+from importlib import import_module
+from pathlib import Path
+from torch.utils.data import DataLoader
+
+
+def load_scan_list(path_to_scan_list):
+    if path_to_scan_list.as_posix().endswith('.npy'):
+        return np.load(path_to_scan_list)
+    
+    if path_to_scan_list.as_posix().endswith('.csv'):
+        with open(path_to_scan_list, 'r') as f:
+            return [
+                scan_id 
+                for scan_id in f.read().split('\n')
+            ]
+
+    return []
+
+def main(datadir, metadata_dir):
+
+    model = import_module('res18')
+    config, net, loss, get_pbb = model.get_model()
+
+    trn_dataset = data.DataBowl3Detector(
+        datadir,
+        load_scan_list(Path(metadata_dir, 'training_scans.csv')),
+        config,
+        phase = 'train')
+
+    val_dataset = data.DataBowl3Detector(
+        datadir,
+        load_scan_list(Path(metadata_dir, 'validation_scans.csv')),
+        config,
+        phase = 'val')
+    
+
+    for epoch in range(100):
+        for idx in trn_dataset.scan_list:
+            pass
+
+
+    for idx in range(val_dataset.__len__()):
+        pass
