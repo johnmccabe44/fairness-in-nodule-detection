@@ -46,12 +46,12 @@ def main(datadir, metadata_dir):
     print('Starting training', flush=True)
     
     for epoch in tqdm(range(100)):
-        for idx in trn_dataset.scan_list:
-            pass
+        for idx in range(trn_dataset.__len__()):
+            trn_dataset.__getitem__(idx)
 
     print('Starting validation', flush=True)
     for idx in tqdm(range(val_dataset.__len__())):
-        pass
+        val_dataset.__getitem__(idx)
 
 if __name__ == '__main__':
     data_dir = sys.argv[1]
