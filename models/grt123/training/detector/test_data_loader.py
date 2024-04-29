@@ -1,9 +1,11 @@
 
+import sys
 import data
 from importlib import import_module
 import logging
 from pathlib import Path
 from torch.utils.data import DataLoader
+import tqdm
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,9 +42,15 @@ def main(datadir, metadata_dir):
         config,
         phase = 'val')
     
-    for epoch in range(100):
+    for epoch in tqdm(range(100)):
         for idx in trn_dataset.scan_list:
             pass
 
-    for idx in range(val_dataset.__len__()):
+    for idx in tqdm(range(val_dataset.__len__())):
         pass
+
+if __name__ == '__main__':
+    data_dir = sys.argv[1]
+    metadata_dir = sys.argv[2]
+
+    main(data_dir, metadata_dir)
