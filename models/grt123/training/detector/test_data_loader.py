@@ -5,7 +5,7 @@ from importlib import import_module
 import logging
 from pathlib import Path
 from torch.utils.data import DataLoader
-import tqdm
+from tqdm import tqdm
 
 def load_scan_list(path_to_scan_list):
     if path_to_scan_list.as_posix().endswith('.csv'):
