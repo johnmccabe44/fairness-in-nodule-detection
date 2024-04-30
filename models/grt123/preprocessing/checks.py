@@ -17,7 +17,7 @@ def get_size(path):
 
 def main(prepresult_path):
 
-    list_clean_files = list(Path(prepresult_path).rglob('clean.npy'))
+    list_clean_files = list(Path(prepresult_path).rglob('*clean.npy'))
 
     with Pool(8) as p:
         sizes = list(tqdm(p.imap(get_size, list_clean_files), total=len(list_clean_files)))
