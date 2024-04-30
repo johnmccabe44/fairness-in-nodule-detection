@@ -114,7 +114,7 @@ class DataBowl3Detector(Dataset):
             #if filename in self.kagglenames and self.phase=='train':
             #    label[label==-1]=0
 
-            print(f'{filename},{sample.shape},{label.shape}, {target.shape}, {bboxes.shape}', flush=True)
+            # print(f'{filename},{sample.shape},{label.shape}, {target.shape}, {bboxes.shape}', flush=True)
             return torch.from_numpy(sample), torch.from_numpy(label), coord
         else:
             imgs = np.load(self.filenames[idx])
@@ -136,7 +136,7 @@ class DataBowl3Detector(Dataset):
                                                    margin = self.split_comber.margin/self.stride)
             assert np.all(nzhw==nzhw2)
             imgs = (imgs.astype(np.float32)-128)/128
-            print(f'{self.filenames[idx]},{imgs.shape},{coord2.shape}, {bboxes.shape}', flush=True)
+            # print(f'{self.filenames[idx]},{imgs.shape},{coord2.shape}, {bboxes.shape}', flush=True)
             return torch.from_numpy(imgs), bboxes, torch.from_numpy(coord2), np.array(nzhw)
 
     def __len__(self):
@@ -303,7 +303,7 @@ class LabelMapping(object):
 
         for bbox in bboxes:
             for i, anchor in enumerate(anchors):
-                print(filename, bbox, anchor, th_neg, oz, oh, ow, flush=True)                
+                #print(filename, bbox, anchor, th_neg, oz, oh, ow, flush=True)                
                 iz, ih, iw = select_samples(bbox, anchor, th_neg, oz, oh, ow)
                 label[iz, ih, iw, i, 0] = 0
 
