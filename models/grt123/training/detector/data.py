@@ -95,7 +95,7 @@ class DataBowl3Detector(Dataset):
                 bboxes = self.sample_bboxes[int(bbox[0])]
                 isScale = self.augtype['scale'] and (self.phase=='train')
                 sample, target, bboxes, coord = self.crop(imgs, bbox[1:], bboxes, isScale, isRandom)
-                # print(f'{filename},{sample.shape},{target.shape}, {bbox[1:]}, {bboxes}', flush=True)
+                print(f'-{filename},{sample.shape},{target.shape}, {bboxes}', flush=True)
                 if self.phase=='train' and not isRandom:
                      sample, target, bboxes, coord = augment(sample, target, bboxes, coord,
                         ifflip = self.augtype['flip'], ifrotate=self.augtype['rotate'], ifswap = self.augtype['swap'])
@@ -107,14 +107,10 @@ class DataBowl3Detector(Dataset):
                 bboxes = self.sample_bboxes[randimid]
                 isScale = self.augtype['scale'] and (self.phase=='train')
                 sample, target, bboxes, coord = self.crop(imgs, [], bboxes,isScale=False,isRand=True)
-
+                print(f'+{filename},{sample.shape},{target.shape},{bboxes}', flush=True)
                 
             label = self.label_mapping(sample.shape[1:], target, bboxes, filename)
             sample = (sample.astype(np.float32)-128)/128
-            #if filename in self.kagglenames and self.phase=='train':
-            #    label[label==-1]=0
-
-            # print(f'{filename},{sample.shape},{label.shape}, {target.shape}, {bboxes.shape}', flush=True)
             return torch.from_numpy(sample), torch.from_numpy(label), coord
         else:
             imgs = np.load(self.filenames[idx])
@@ -136,7 +132,6 @@ class DataBowl3Detector(Dataset):
                                                    margin = self.split_comber.margin/self.stride)
             assert np.all(nzhw==nzhw2)
             imgs = (imgs.astype(np.float32)-128)/128
-            # print(f'{self.filenames[idx]},{imgs.shape},{coord2.shape}, {bboxes.shape}', flush=True)
             return torch.from_numpy(imgs), bboxes, torch.from_numpy(coord2), np.array(nzhw)
 
     def __len__(self):
@@ -302,8 +297,7 @@ class LabelMapping(object):
         ow = np.arange(offset, offset + stride * (output_size[2] - 1) + 1, stride)
 
         for bbox in bboxes:
-            for i, anchor in enumerate(anchors):
-                #print(filename, bbox, anchor, th_neg, oz, oh, ow, flush=True)                
+            for i, anchor in enumerate(anchors):                
                 iz, ih, iw = select_samples(bbox, anchor, th_neg, oz, oh, ow)
                 label[iz, ih, iw, i, 0] = 0
 
@@ -350,7 +344,7 @@ def select_samples(bbox, anchor, th, oz, oh, ow):
     max_overlap = min(d, anchor)
 
     if max_overlap <= 0:
-        print(['max_overlap', max_overlap])
+        print(f'max_overlap: {max_overlap}, anchor:{anchor}', flush=True)
 
     min_overlap = np.power(max(d, anchor), 3) * th / max_overlap / max_overlap
     if min_overlap > max_overlap:
