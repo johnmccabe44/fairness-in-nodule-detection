@@ -95,7 +95,7 @@ class DataBowl3Detector(Dataset):
                 bboxes = self.sample_bboxes[int(bbox[0])]
                 isScale = self.augtype['scale'] and (self.phase=='train')
                 sample, target, bboxes, coord = self.crop(imgs, bbox[1:], bboxes, isScale, isRandom)
-                print(f'-{filename},{sample.shape},{target.shape}, {bboxes}', flush=True)
+                # print(f'-{filename},{sample.shape},{target.shape}, {bboxes}', flush=True)
                 if self.phase=='train' and not isRandom:
                      sample, target, bboxes, coord = augment(sample, target, bboxes, coord,
                         ifflip = self.augtype['flip'], ifrotate=self.augtype['rotate'], ifswap = self.augtype['swap'])
@@ -107,7 +107,7 @@ class DataBowl3Detector(Dataset):
                 bboxes = self.sample_bboxes[randimid]
                 isScale = self.augtype['scale'] and (self.phase=='train')
                 sample, target, bboxes, coord = self.crop(imgs, [], bboxes,isScale=False,isRand=True)
-                print(f'+{filename},{sample.shape},{target.shape},{bboxes}', flush=True)
+                # print(f'+{filename},{sample.shape},{target.shape},{bboxes}', flush=True)
                 
             label = self.label_mapping(sample.shape[1:], target, bboxes, filename)
             sample = (sample.astype(np.float32)-128)/128
