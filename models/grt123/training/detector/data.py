@@ -341,7 +341,9 @@ class LabelMapping(object):
 
 def select_samples(bbox, anchor, th, oz, oh, ow):
     z, h, w, d = bbox
-    max_overlap = min(d, anchor)
+
+    # JM added to handle the nodules with diameter as 0
+    max_overlap = min(d if d > 0 else 1, anchor)
 
     if max_overlap <= 0:
         print(f'max_overlap: {max_overlap}, anchor:{anchor}', flush=True)
