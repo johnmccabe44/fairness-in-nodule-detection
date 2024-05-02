@@ -487,7 +487,7 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
         plt.ylim(0, 1)
         plt.xlabel('Average number of false positives per scan')
         plt.ylabel('Sensitivity')
-        plt.legend(loc='lower right')
+        #plt.legend(loc='lower right')
         plt.title('FROC performance%s' % (filter))
         
         if bLogPlot:
