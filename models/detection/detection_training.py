@@ -78,6 +78,13 @@ def main():
         help="whether to verbose detail during training, recommand True when you are not sure about hyper-parameters",
     )
     parser.add_argument(
+        "-x",
+        "--epochs",
+        default=300,
+        type=int,
+        help="number of epochs",
+    )
+    parser.add_argument(
         "-b",
         "--batch-size",
         default=1,
@@ -304,7 +311,7 @@ def main():
     best_val_epoch_metric = 0.0
     best_val_epoch = -1  # the epoch that gives best validation metrics
 
-    max_epochs = 100
+    max_epochs = args.epochs
     epoch_len = len(train_ds) // train_loader.batch_size
     w_cls = config_dict.get("w_cls", 1.0)  # weight between classification loss and box regression loss, default 1.0
     for epoch in range(start_epoch, max_epochs):
