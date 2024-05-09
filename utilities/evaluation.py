@@ -202,7 +202,7 @@ def computeFROC(FROCGTList, FROCProbList, totalNumberOfImages, excludeList):
     return fps, sens, thresholds
 
 def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemName, maxNumberOfCADMarks=-1,
-                performBootstrapping=False,numberOfBootstrapSamples=1000,confidence = 0.95, filter=None):
+                performBootstrapping=False,numberOfBootstrapSamples=1000,confidence = 0.95, filter=None, show_froc=True):
     '''
     function to evaluate a CAD algorithm
     @param seriesUIDs: list of the seriesUIDs of the cases to be processed
@@ -470,7 +470,7 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
         sens_bs_up = None
 
     # create FROC graphs
-    if int(totalNumberOfNodules) > 0:
+    if int(totalNumberOfNodules) > 0 and show_froc:
         graphTitle = str("")
         fig1 = plt.figure()
         ax = plt.gca()
@@ -581,7 +581,7 @@ def collect(annotations_filename,annotations_excluded_filename,seriesuids_filena
     
     
 def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,seriesuids_filename,
-                        results_filename, outputDir, filter, perform_bootstrapping=True):
+                        results_filename, outputDir, filter, perform_bootstrapping=True, show_froc=True):
     '''
     function to load annotations and evaluate a CAD algorithm
     @param annotations_filename: list of annotations
@@ -609,7 +609,8 @@ def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,serie
                 performBootstrapping=perform_bootstrapping,
                 numberOfBootstrapSamples=bNumberOfBootstrapSamples,
                 confidence=bConfidence,
-                filter=filter)
+                filter=filter,
+                show_froc=show_froc)
 
     return (fps, sens, thresholds, fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up, fps_itp, sens_itp)
 
