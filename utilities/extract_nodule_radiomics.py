@@ -214,9 +214,11 @@ def get_radiomic_features(idx, image_list, nodule_metadata, segment_or_crop):
     study_id = scan_id.split('_')[0]
     scan_nodule_data = nodule_metadata.loc[nodule_metadata['participant_id'] == study_id]
 
+
+
     log_msgs = []
 
-    log_msgs.append(f'Processing {scan_id}, start time:{datetime.now()}')
+    log_msgs.append(f'Processing {scan_id} - Nodules Count: {scan_nodule_data.shape[0]} , start time:{datetime.now()}')
 
     features = []
     
@@ -285,7 +287,7 @@ def get_radiomic_features(idx, image_list, nodule_metadata, segment_or_crop):
         except Exception as err:
             log_msgs.append(f'Error processing {scan_id}')
 
-    return log_msgs, pd.concat(features)
+    return log_msgs, pd.concat(features) if features else pd.DataFrame()
 
 def collate_nodule_radiomics(image_path, nodule_metadata, workers, segment_or_crop, throttle=None, batch_size=None, batch_number=None):
 
