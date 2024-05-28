@@ -336,7 +336,7 @@ def collate_nodule_radiomics(image_path, nodule_metadata, workers, segment_or_cr
     features = pd.concat(features)
 
     Path('nodule_stats').mkdir(exist_ok=True, parents=True)
-    features.to_csv(f'nodule_stats/{segment_or_crop}_features.csv')
+    features.to_csv(f'nodule_stats/{segment_or_crop}_features_{batch_number}.csv')
 
 if __name__ == '__main__':
 
