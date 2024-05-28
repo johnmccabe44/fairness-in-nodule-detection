@@ -1,4 +1,5 @@
 import argparse
+from datetime import datetime
 from functools import partial
 import random
 import SimpleITK as sitk
@@ -213,7 +214,9 @@ def get_radiomic_features(idx, image_list, nodule_metadata, segment_or_crop):
     study_id = scan_id.split('_')[0]
     scan_nodule_data = nodule_metadata.loc[nodule_metadata['participant_id'] == study_id]
 
-    print(f'Processing {scan_id}')
+    log_msgs = []
+
+    log_msgs.append(f'Processing {scan_id}, start time:{datetime.now()}')
 
     features = []
     
@@ -258,10 +261,9 @@ def get_radiomic_features(idx, image_list, nodule_metadata, segment_or_crop):
             # Extract radiomic features
             mask_array = sitk.GetArrayFromImage(mask)
             if np.sum(mask_array) == 0:
-                print('Warning: no hu > 400')
+                log_msgs.append(f"Scan Id: {scan_id}, Nodule Id: {nodule_id}, Nodule Type: {nodule_data['radiology_report_nodule_type']}, Warning: no hu > {hu_threshold}")
             else:
                 features.append(extract_features(scan_id, nodule_id, image, mask))
-            
             
             if random.random() < 0.1:
                 Path('images').mkdir(exist_ok=True, parents=True)
@@ -281,10 +283,9 @@ def get_radiomic_features(idx, image_list, nodule_metadata, segment_or_crop):
                     )
 
         except Exception as err:
-            print(f'Error processing {scan_id}')
+            log_msgs.append(f'Error processing {scan_id}')
 
-    if features:
-        return pd.concat(features)
+    return log_msgs, pd.concat(features)
 
 def collate_nodule_radiomics(image_path, nodule_metadata, workers, segment_or_crop, throttle=None, batch_size=None, batch_number=None):
 
@@ -307,18 +308,28 @@ def collate_nodule_radiomics(image_path, nodule_metadata, workers, segment_or_cr
                                         )
 
         with Pool(workers) as p:
-            features = p.map(partial_get_radiomic_fatures, range(N))
+            results = p.map(partial_get_radiomic_fatures, range(N))
+
+        features = [result[1] for result in results]
+        log_msgs = [msg for result in results for msg in result[0]]
 
     else:
         features = []
+        log_msgs = []
         for idx in range(N):
-            features.append(
-                get_radiomic_features(
-                    idx, 
-                    image_list, 
-                    nodule_metadata,
-                    segment_or_crop
-                ))
+            log_msg, feature = get_radiomic_features(
+                                    idx,
+                                    image_list,
+                                    nodule_metadata,
+                                    segment_or_crop
+                                )
+            
+            log_msgs.extend(log_msg)
+            features.append(feature)
+
+    # dump out the log msgs
+    for log_msg in log_msgs:
+        print(log_msg)
 
     features = pd.concat(features)
 
