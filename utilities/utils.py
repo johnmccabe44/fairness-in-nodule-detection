@@ -14,9 +14,7 @@ from zipfile import ZipFile
 import xnat
 import sys
 
-IrcTuple = namedtuple('IrcTuple',['index','row','col'])
 
-XyzTuple = namedtuple('XyzTuple',['x','y','z'])
 
 DisplayTuple = namedtuple('DisplayTuple',['nodule_type','scan_id', 'image', 'xyz_coords', 'irc_coords', 'diameter'])
 
@@ -43,64 +41,6 @@ def display_images(nodule_type_images : List[DisplayTuple]):
         ax.set_title(display_tuple.nodule_type + '-' + display_tuple.scan_id + '-' + str(irc) + '-' + str(xyz))
         plt.show()
 
-def xyz2irc(coord_xyz, origin, voxel_size, orientation=np.array([[1,0,0],[0,1,0],[0,0,1]])):
-
-    origin_a = np.array(origin)
-    voxel_size_a = np.array(voxel_size)
-    coord_a = np.array(coord_xyz)
-
-    cri_a = ((coord_a - origin_a) @ np.linalg.inv(orientation)) / voxel_size_a
-    
-    # it can only be whole numbers as irc
-    cri_a = np.round(cri_a)
-    return IrcTuple(index=int(cri_a[2]), row=int(cri_a[1]), col=int(cri_a[0]))
-
-def irc2xyz(coord_irc, origin_xyz, vxSize_xyz, direction_a):
-    cri_a = np.array(coord_irc)[::-1]
-    origin_a = np.array(origin_xyz)
-    vxSize_a = np.array(vxSize_xyz)
-    coords_xyz = (direction_a @ (cri_a * vxSize_a)) + origin_a
-    # coords_xyz = (direction_a @ (idx * vxSize_a)) + origin_a
-    return XyzTuple(*coords_xyz)
-
-class SummitScan:
-    """
-    Author: John McCabe
-    Description:  
-
-    Attributes:
-        pixel_array
-        voxel_size
-        origin
-        orientation
-    """
-    def __init__(self, scan_uid, metadata, image) -> None:
-        super().__init__()
-        self.scan_uid = scan_uid
-        self.metadata = metadata
-        self.image = image
-
-        # Pull out the salient bits of info needed
-        self.origin = self.metadata.GetOrigin()
-        self.voxel_size = self.metadata.GetSpacing()
-        self.orientation = np.array(self.metadata.GetDirection()).reshape(3,3)
-
-    @classmethod
-    def load_scan(cls, path, type='MetaImageIO'):
-        """
-        Loads the scan from raw. Keeps all properties as part of the slices. 
-        """
-
-        # unique identifier can be found from file name
-        scan_uid = os.path.basename(path).split('.')[0]
-
-        # read in the scan
-        if type == 'MetaImageIO':
-            metadata = sitk.ReadImage(path)
-            image = np.array(sitk.GetArrayFromImage(metadata), dtype=np.float32)
-
-        return cls(scan_uid, metadata, image)
-   
 def display_original_nodules(scan_path, stem):
     
     scan = SummitScan.load_scan(scan_path)
