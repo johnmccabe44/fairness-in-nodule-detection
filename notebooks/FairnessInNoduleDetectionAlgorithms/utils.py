@@ -46,12 +46,15 @@ def caluclate_cpm_from_bootstrapping(file_path):
     mean_cpm = df['mean_sens'].mean()
     low_cpm = df['low_sens'].mean()
     high_cpm = df['high_sens'].mean()
+    summary_cpm = df.apply(lambda row: f'{row["mean_sens"]} ({row["low_sens"]} - {row["high_sens"]})', axis=1)
 
+    display(summary_cpm.to_frame().T)
     display(df)
     print('Mean Sensitivity:', np.round(mean_cpm,2), 'Low Sensitivity:', np.round(low_cpm,2), 'High Sensitivity:', np.round(high_cpm,2))
 
 def show_metrics(file_path):
     metrics = pd.read_csv(file_path, skiprows=6, sep=':').rename(columns={0:'Metric',1:'Value'}).round(3)
+
     display(metrics)
 
 def protected_group_analysis(protected_group, scan_metadata, annotations, exclusions, predictions, output_path):
@@ -61,39 +64,40 @@ def protected_group_analysis(protected_group, scan_metadata, annotations, exclus
     analysis_dict = {}
 
     for cat in scan_metadata[protected_group].unique():
-        with TemporaryDirectory() as temp_dir:
-            temp_dir = Path(temp_dir)
-            temp_scans = scan_metadata[scan_metadata[protected_group] == cat]['name']
-            temp_annotations = annotations[annotations['name'].isin(temp_scans.values)]
-            temp_exclusions = exclusions[exclusions['name'].isin(temp_scans.values)]
-            temp_predictions = predictions[predictions['name'].isin(temp_scans.values)]
+        if cat:
+            with TemporaryDirectory() as temp_dir:
+                temp_dir = Path(temp_dir)
+                temp_scans = scan_metadata[scan_metadata[protected_group] == cat]['name']
+                temp_annotations = annotations[annotations['name'].isin(temp_scans.values)]
+                temp_exclusions = exclusions[exclusions['name'].isin(temp_scans.values)]
+                temp_predictions = predictions[predictions['name'].isin(temp_scans.values)]
 
-            temp_scans.to_csv(temp_dir / 'scans.csv', index=False)
-            temp_annotations.to_csv(temp_dir / 'annotations.csv', index=False)
-            temp_exclusions.to_csv(temp_dir / 'exclusions.csv', index=False)
-            temp_predictions.to_csv(temp_dir / 'predictions.csv', index=False)
+                temp_scans.to_csv(temp_dir / 'scans.csv', index=False)
+                temp_annotations.to_csv(temp_dir / 'annotations.csv', index=False)
+                temp_exclusions.to_csv(temp_dir / 'exclusions.csv', index=False)
+                temp_predictions.to_csv(temp_dir / 'predictions.csv', index=False)
 
-            result = noduleCADEvaluation(
-                annotations_filename=temp_dir / 'annotations.csv',
-                annotations_excluded_filename=temp_dir / 'exclusions.csv',
-                seriesuids_filename=temp_dir / 'scans.csv',
-                results_filename=temp_dir / 'predictions.csv',
-                filter=f'-{cat}',
-                outputDir=output_path / cat,
-            )
+                result = noduleCADEvaluation(
+                    annotations_filename=temp_dir / 'annotations.csv',
+                    annotations_excluded_filename=temp_dir / 'exclusions.csv',
+                    seriesuids_filename=temp_dir / 'scans.csv',
+                    results_filename=temp_dir / 'predictions.csv',
+                    filter=f'-{cat}',
+                    outputDir=output_path / cat,
+                )
 
-            caluclate_cpm_from_bootstrapping(output_path / cat / 'froc_predictions_bootstrapping.csv')
-            show_metrics(output_path / cat / 'CADAnalysis.txt')
+                caluclate_cpm_from_bootstrapping(output_path / cat / 'froc_predictions_bootstrapping.csv')
+                show_metrics(output_path / cat / 'CADAnalysis.txt')
 
-            analysis_dict[cat] = (
-                pd.read_csv(output_path / cat / 'froc_predictions_bootstrapping.csv')
-                .rename(columns={
-                    'FPrate': 'FPRate',
-                    'Sensivity[Mean]': 'Sensitivity',
-                    'Sensivity[Lower bound]': 'LowSensitivity',
-                    'Sensivity[Upper bound]': 'HighSensitivity'
-                })
-            )
+                analysis_dict[cat] = (
+                    pd.read_csv(output_path / cat / 'froc_predictions_bootstrapping.csv')
+                    .rename(columns={
+                        'FPrate': 'FPRate',
+                        'Sensivity[Mean]': 'Sensitivity',
+                        'Sensivity[Lower bound]': 'LowSensitivity',
+                        'Sensivity[Upper bound]': 'HighSensitivity'
+                    })
+                )
 
     fig1 = plt.figure()
     ax = plt.gca()
@@ -124,7 +128,21 @@ def protected_group_analysis(protected_group, scan_metadata, annotations, exclus
     plt.grid(visible=True, which='both')
     plt.tight_layout()
 
-def set_ethnic_group_by_actionable(row):
+def set_ethnic_group_is_actionable(row):
+    
+    if row['lung_health_check_demographics_race_ethnicgroup'] == 'White' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:        
+        return 'White_Actionable'
+    
+    elif row['lung_health_check_demographics_race_ethnicgroup'] == 'Black' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:        
+        return 'Black_Actionable'
+
+    elif row['lung_health_check_demographics_race_ethnicgroup'] == 'Asian or Asian British' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:    
+        return 'Asian_Actionable'   
+    
+    else:
+        return None
+
+def set_ethnic_group_is_not_actionable(row):
     
     if row['lung_health_check_demographics_race_ethnicgroup'] == 'White' and row['radiology_report_management_plan_final'] == 'RANDOMISATION_AT_YEAR_1':        
         return 'White_Non_Actionable'
@@ -135,29 +153,31 @@ def set_ethnic_group_by_actionable(row):
     elif row['lung_health_check_demographics_race_ethnicgroup'] == 'Asian or Asian British' and row['radiology_report_management_plan_final'] == 'RANDOMISATION_AT_YEAR_1':    
         return 'Asian_Non_Actionable'    
 
-    elif row['lung_health_check_demographics_race_ethnicgroup'] == 'White' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:        
-        return 'White_Actionable'
+    else:
+        return None
+
+def set_gender_is_actionable(row):
+
+    if row['participant_details_gender'] == 'MALE' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:        
+        return 'Male_Actionable'
     
-    elif row['lung_health_check_demographics_race_ethnicgroup'] == 'Black' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:        
-        return 'Black_Actionable'
+    elif row['participant_details_gender'] == 'FEMALE' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:        
+        return 'Female_Actionable'
+    
+    else:
+        return None
 
-    elif row['lung_health_check_demographics_race_ethnicgroup'] == 'Asian or Asian British' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:    
-        return 'Asian_Actionable'   
-
-def set_gender_by_actionable(row):
+def set_gender_is_not_actionable(row):
 
     if row['participant_details_gender'] == 'MALE' and row['radiology_report_management_plan_final'] == 'RANDOMISATION_AT_YEAR_1':        
         return 'Male_Non_Actionable'
     
-    if row['participant_details_gender'] == 'FEMALE' and row['radiology_report_management_plan_final'] == 'RANDOMISATION_AT_YEAR_1':        
+    elif row['participant_details_gender'] == 'FEMALE' and row['radiology_report_management_plan_final'] == 'RANDOMISATION_AT_YEAR_1':        
         return 'Female_Non_Actionable'
     
-    if row['participant_details_gender'] == 'MALE' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:        
-        return 'Male_Actionable'
-    
-    if row['participant_details_gender'] == 'FEMALE' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:        
-        return 'Female_Actionable'
-
+    else:
+        return None
+        
 def get_thresholds(analysis_data):
     """
     Get the thresholds at different FPPs
