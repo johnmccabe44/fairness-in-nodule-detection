@@ -1,4 +1,6 @@
 import json
+from operator import is_
+from cv2 import norm, normalize
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -10,6 +12,10 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FixedFormatter
 import matplotlib.pyplot as plt
 import subprocess
+from pyparsing import col
+from scipy.stats import f_oneway
+import statsmodels.api as sm
+from statsmodels.stats.multicomp import pairwise_tukeyhsd
 
 warnings.simplefilter('ignore')
 
@@ -42,7 +48,7 @@ def caluclate_cpm_from_bootstrapping(file_path):
     high_sens = high_mean_sens[idxs]
 
     
-    df = pd.DataFrame({'fps': fps, 'mean_sens': mean_sens, 'low_sens': low_sens, 'high_sens': high_sens}).apply(lambda x: np.round(x,2))
+    df = pd.DataFrame({'fps': fps, 'mean_sens': mean_sens, 'low_sens': low_sens, 'high_sens': high_sens}).apply(lambda x: np.round(x,3))
     mean_cpm = df['mean_sens'].mean()
     low_cpm = df['low_sens'].mean()
     high_cpm = df['high_sens'].mean()
@@ -50,7 +56,9 @@ def caluclate_cpm_from_bootstrapping(file_path):
 
     display(summary_cpm.to_frame().T)
     display(df)
-    print('Mean Sensitivity:', np.round(mean_cpm,2), 'Low Sensitivity:', np.round(low_cpm,2), 'High Sensitivity:', np.round(high_cpm,2))
+    print('Mean Sensitivity:', np.round(mean_cpm,2), 'Low Sensitivity:', np.round(low_cpm,2), 'High Sensitivity:', np.round(high_cpm,3))
+
+    return df
 
 def show_metrics(file_path):
     metrics = pd.read_csv(file_path, skiprows=6, sep=':').rename(columns={0:'Metric',1:'Value'}).round(3)
@@ -62,42 +70,62 @@ def protected_group_analysis(protected_group, scan_metadata, annotations, exclus
     output_path = Path(output_path)
 
     analysis_dict = {}
+    summary_dict = {}
 
     for cat in scan_metadata[protected_group].unique():
-        if cat:
-            with TemporaryDirectory() as temp_dir:
-                temp_dir = Path(temp_dir)
-                temp_scans = scan_metadata[scan_metadata[protected_group] == cat]['name']
-                temp_annotations = annotations[annotations['name'].isin(temp_scans.values)]
-                temp_exclusions = exclusions[exclusions['name'].isin(temp_scans.values)]
-                temp_predictions = predictions[predictions['name'].isin(temp_scans.values)]
+        if cat is np.nan:
+            continue
 
-                temp_scans.to_csv(temp_dir / 'scans.csv', index=False)
-                temp_annotations.to_csv(temp_dir / 'annotations.csv', index=False)
-                temp_exclusions.to_csv(temp_dir / 'exclusions.csv', index=False)
-                temp_predictions.to_csv(temp_dir / 'predictions.csv', index=False)
+        if cat is None:
+            continue
 
-                result = noduleCADEvaluation(
-                    annotations_filename=temp_dir / 'annotations.csv',
-                    annotations_excluded_filename=temp_dir / 'exclusions.csv',
-                    seriesuids_filename=temp_dir / 'scans.csv',
-                    results_filename=temp_dir / 'predictions.csv',
-                    filter=f'-{cat}',
-                    outputDir=output_path / cat,
-                )
+            
+        print('='*50)
+        print(f'Protected Group: {cat}')
+        print('='*50)
 
-                caluclate_cpm_from_bootstrapping(output_path / cat / 'froc_predictions_bootstrapping.csv')
-                show_metrics(output_path / cat / 'CADAnalysis.txt')
+        with TemporaryDirectory() as temp_dir:
+            temp_dir = Path(temp_dir)
+            temp_scans = scan_metadata[scan_metadata[protected_group] == cat]['name']
+            temp_annotations = annotations[annotations['name'].isin(temp_scans.values)]
+            temp_exclusions = exclusions[exclusions['name'].isin(temp_scans.values)]
+            temp_predictions = predictions[predictions['name'].isin(temp_scans.values)]
 
-                analysis_dict[cat] = (
-                    pd.read_csv(output_path / cat / 'froc_predictions_bootstrapping.csv')
-                    .rename(columns={
-                        'FPrate': 'FPRate',
-                        'Sensivity[Mean]': 'Sensitivity',
-                        'Sensivity[Lower bound]': 'LowSensitivity',
-                        'Sensivity[Upper bound]': 'HighSensitivity'
-                    })
-                )
+            temp_scans.to_csv(temp_dir / 'scans.csv', index=False)
+            temp_annotations.to_csv(temp_dir / 'annotations.csv', index=False)
+            temp_exclusions.to_csv(temp_dir / 'exclusions.csv', index=False)
+            temp_predictions.to_csv(temp_dir / 'predictions.csv', index=False)
+
+
+            order = [
+                nodule_type 
+                for nodule_type in ['SOLID','PERIFISSURAL','PART_SOLID','NON_SOLID','CALCIFIED'] 
+                if nodule_type in temp_annotations.nodule_type.unique()
+            ]
+            
+            display(temp_annotations.nodule_type.value_counts(normalize=True).to_frame().T[order].apply(lambda x: round(x*100)))
+
+            result = noduleCADEvaluation(
+                annotations_filename=temp_dir / 'annotations.csv',
+                annotations_excluded_filename=temp_dir / 'exclusions.csv',
+                seriesuids_filename=temp_dir / 'scans.csv',
+                results_filename=temp_dir / 'predictions.csv',
+                filter=f'-{cat}',
+                outputDir=output_path / cat,
+            )
+
+            summary_dict[cat] = caluclate_cpm_from_bootstrapping(output_path / cat / 'froc_predictions_bootstrapping.csv').set_index('fps')
+            show_metrics(output_path / cat / 'CADAnalysis.txt')
+
+            analysis_dict[cat] = (
+                pd.read_csv(output_path / cat / 'froc_predictions_bootstrapping.csv')
+                .rename(columns={
+                    'FPrate': 'FPRate',
+                    'Sensivity[Mean]': 'Sensitivity',
+                    'Sensivity[Lower bound]': 'LowSensitivity',
+                    'Sensivity[Upper bound]': 'HighSensitivity'
+                })
+            )
 
     fig1 = plt.figure()
     ax = plt.gca()
@@ -106,9 +134,9 @@ def protected_group_analysis(protected_group, scan_metadata, annotations, exclus
 
         metrics = analysis_dict[cat]        
         plt.plot(metrics['FPRate'], metrics['Sensitivity'], ls='--', color=colors[idx],label=cat)
-        # plt.plot(metrics['FPRate'], metrics['LowSensitivity'], ls=':', color=colors[idx])
-        # plt.plot(metrics['FPRate'], metrics['HighSensitivity'], ls=':', color=colors[idx])
-        # ax.fill_between(metrics['FPRate'], metrics['LowSensitivity'], metrics['HighSensitivity'], alpha=0.05)
+        plt.plot(metrics['FPRate'], metrics['LowSensitivity'], ls=':', color=colors[idx], alpha=0.05)
+        plt.plot(metrics['FPRate'], metrics['HighSensitivity'], ls=':', color=colors[idx], alpha=0.05)
+        ax.fill_between(metrics['FPRate'], metrics['LowSensitivity'], metrics['HighSensitivity'], alpha=0.05)
 
     xmin = 0.125
     xmax = 8
@@ -128,16 +156,18 @@ def protected_group_analysis(protected_group, scan_metadata, annotations, exclus
     plt.grid(visible=True, which='both')
     plt.tight_layout()
 
+    return summary_dict
+
 def set_ethnic_group_is_actionable(row):
     
     if row['lung_health_check_demographics_race_ethnicgroup'] == 'White' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:        
-        return 'White_Actionable'
+        return 'White'
     
     elif row['lung_health_check_demographics_race_ethnicgroup'] == 'Black' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:        
-        return 'Black_Actionable'
+        return 'Black'
 
     elif row['lung_health_check_demographics_race_ethnicgroup'] == 'Asian or Asian British' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:    
-        return 'Asian_Actionable'   
+        return 'Asian or Asian British'   
     
     else:
         return None
@@ -145,13 +175,13 @@ def set_ethnic_group_is_actionable(row):
 def set_ethnic_group_is_not_actionable(row):
     
     if row['lung_health_check_demographics_race_ethnicgroup'] == 'White' and row['radiology_report_management_plan_final'] == 'RANDOMISATION_AT_YEAR_1':        
-        return 'White_Non_Actionable'
+        return 'White'
     
     elif row['lung_health_check_demographics_race_ethnicgroup'] == 'Black' and row['radiology_report_management_plan_final'] == 'RANDOMISATION_AT_YEAR_1':        
-        return 'Black_Non_Actionable'
+        return 'Black'
 
     elif row['lung_health_check_demographics_race_ethnicgroup'] == 'Asian or Asian British' and row['radiology_report_management_plan_final'] == 'RANDOMISATION_AT_YEAR_1':    
-        return 'Asian_Non_Actionable'    
+        return 'Asian or Asian British'    
 
     else:
         return None
@@ -159,10 +189,10 @@ def set_ethnic_group_is_not_actionable(row):
 def set_gender_is_actionable(row):
 
     if row['participant_details_gender'] == 'MALE' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:        
-        return 'Male_Actionable'
+        return 'Male'
     
     elif row['participant_details_gender'] == 'FEMALE' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:        
-        return 'Female_Actionable'
+        return 'Female'
     
     else:
         return None
@@ -170,14 +200,40 @@ def set_gender_is_actionable(row):
 def set_gender_is_not_actionable(row):
 
     if row['participant_details_gender'] == 'MALE' and row['radiology_report_management_plan_final'] == 'RANDOMISATION_AT_YEAR_1':        
-        return 'Male_Non_Actionable'
+        return 'Male'
     
     elif row['participant_details_gender'] == 'FEMALE' and row['radiology_report_management_plan_final'] == 'RANDOMISATION_AT_YEAR_1':        
-        return 'Female_Non_Actionable'
+        return 'Female'
     
     else:
         return None
-        
+    
+def set_imdrank_is_actionable(row):
+    if row['IMDRank_tertile'] == 'Low' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:        
+        return 'Low_IMDRank_Actionable'
+    
+    elif row['IMDRank_tertile'] == 'Medium' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:        
+        return 'Medium_IMDRank_Actionable'
+
+    elif row['IMDRank_tertile'] == 'High' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:        
+        return 'High_IMDRank_Actionable'
+    
+    else:
+        return None
+    
+def set_smoking_pack_years_is_actionable(row):
+    if row['smoking_pack_years_cats'] == 'Low (15-35)' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:        
+        return 'Low_Pack_Years_Actionable'
+
+    elif row['smoking_pack_years_cats'] == 'Medium (35-50)' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:        
+        return 'Medium_Pack_Years_Actionable'
+    
+    elif row['smoking_pack_years_cats'] == 'High (50+)' and row['radiology_report_management_plan_final'] in ['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1']:        
+        return 'High_Pack_Years_Actionable'
+                        
+    else:
+        return None
+
 def get_thresholds(analysis_data):
     """
     Get the thresholds at different FPPs
@@ -207,7 +263,7 @@ def get_thresholds(analysis_data):
 
     return thresh_values
 
-def miss_anaysis_at_fpps(scans_path, annotations_path, exclusions_path, predictions_path, thresholds, show_froc=False):
+def miss_anaysis_at_fpps(model, scans_metadata, scans_path, annotations_path, exclusions_path, predictions_path, thresholds, show_froc=False):
     """
     Get the missed annotations at different FPPs
 
@@ -224,7 +280,8 @@ def miss_anaysis_at_fpps(scans_path, annotations_path, exclusions_path, predicti
     """
 
     missed_metadata = []
-    for threshold in thresholds:
+
+    for idx, threshold in enumerate(thresholds):
         predictions = pd.read_csv(predictions_path)
         predictions_at_operating_point = predictions[predictions.threshold > threshold]
 
@@ -253,15 +310,94 @@ def miss_anaysis_at_fpps(scans_path, annotations_path, exclusions_path, predicti
 
             merge_keys = ['name','row','col','index','diameter']
 
-            # display(misses[merge_keys].sort_values('name').head(10))
-            # display(annotations[merge_keys].sort_values('name').head(10))
+            df = pd.merge(misses, annotations, on=merge_keys, how='right')
+            df['miss'] = df['miss'].fillna(False)
+            df = df.merge(
+                scans_metadata[['name','is_actionable','smoking_pack_years','IMDRank_tertile','IMDRank_quintile']],
+                on='name',
+                how='left'
+            )
 
-            df = pd.merge(misses, annotations, on=merge_keys)
-            print(f'Missed Annotations at {threshold} FPPs:', len(df))
+            df.to_csv(f'{workspace_path}/notebooks/FairnessInNoduleDetectionAlgorithms/hits_and_misses/{model}/hits_and_misses_{idx}', index=False)
+
+            print(f'Missed Annotations at {threshold} FPPs:', sum(df.miss))
             missed_metadata.append(df)
 
     return missed_metadata
 
+def get_protected_group_by_nodule_type(missed_metadata):
+
+    hit_and_miss_dict = {}
+    for idx, miss_metadata in enumerate(missed_metadata):
+
+        hit_and_miss_dict[idx] = {'all':None, 'actionable':None}
+        hit_and_miss_dict[idx]['all'] = {'gender':None,'ethnic_group':None}
+        hit_and_miss_dict[idx]['actionable'] = {'gender':None,'ethnic_group':None}
+
+        x_gender = (
+            pd.crosstab(
+                [
+                    miss_metadata['gender']
+                ],
+                [
+                    miss_metadata['miss'],                    
+                    miss_metadata['nodule_type']
+                ],
+                margins=True
+                )
+            )
+        
+        hit_and_miss_dict[idx]['all']['gender'] = x_gender.to_dict()
+        
+        x_ethnics = (
+            pd.crosstab(
+                [
+                    miss_metadata['ethnic_group']
+                ],
+                [
+                    miss_metadata['miss'],
+                    miss_metadata['nodule_type']
+                ],
+                margins=True
+                )
+            )
+        
+        hit_and_miss_dict[idx]['all']['ethnic_group'] = x_ethnics.to_dict()
+
+        miss_metadata = miss_metadata[miss_metadata['is_actionable'] == 'Actonable']
+
+        x_gender = (
+            pd.crosstab(
+                [
+                    miss_metadata['gender']
+                ],
+                [
+                    miss_metadata['miss'],                    
+                    miss_metadata['nodule_type']
+                ],
+                margins=True
+                )
+            )
+        
+        hit_and_miss_dict[idx]['actionable']['gender'] = x_gender.to_dict()
+        
+        x_ethnics = (
+            pd.crosstab(
+                [
+                    miss_metadata['ethnic_group']
+                ],
+                [
+                    miss_metadata['miss'],
+                    miss_metadata['nodule_type']
+                ],
+                margins=True
+                )
+            )
+        
+        hit_and_miss_dict[idx]['actionable']['ethnic_group'] = x_ethnics.to_dict()
+
+    return hit_and_miss_dict
+    
 # False Positive Analysis
 def is_distance_match(annotation, prediction):
     """
@@ -506,3 +642,56 @@ def copy_scan_from_cluster(scan_id):
         print(result.stdout)
     else:
         print(f'{scan_id} already exists')
+
+
+
+def display_plots_with_error_bars(model, flavour, protected_group, sensitivity_data, order=None):
+
+    if order is None:
+        order = sensitivity_data.keys()
+    else:
+        order = [cat for cat in order if cat in sensitivity_data.keys()]
+
+    cat_increments = {}
+    increment = -0.1 * (len(order) - 1) / 2
+    for idx, cat in enumerate(order):
+        cat_increments[cat] = increment + 0.1 * idx
+
+
+    # Example summary statistics (mean, low, high) for Male and Female at each FPPI level
+    fppi_levels = [0.125, 0.25, 0.5, 1, 2, 4, 8]
+
+    means = {}
+    errors = {}
+
+    for cat in order:
+        means[cat] = np.array(sensitivity_data[cat]['mean_sens'])
+        errors[cat] = np.array([
+            (
+                sensitivity_data[cat].loc[fppi, 'mean_sens'] - sensitivity_data[cat].loc[fppi, 'low_sens'],
+                sensitivity_data[cat].loc[fppi, 'high_sens'] - sensitivity_data[cat].loc[fppi, 'mean_sens']
+            )
+            for fppi in fppi_levels
+        ]).T
+
+    # Plotting side-by-side scatter plots with error bars
+    plt.figure(figsize=(12, 6))
+
+    bar_width = 0.1
+    index = np.arange(len(fppi_levels))
+
+    for idx, cat in enumerate(means.keys()):
+        plt.errorbar(index + cat_increments[cat], means[cat], yerr=errors[cat], fmt='o',label=cat, capsize=5)
+
+    plt.xlabel('False Positives Per Scan')
+    plt.ylabel('Sensitivity')
+    # plt.title(f'Sensitivity Comparison Between {protected_group}')
+    plt.xticks(index, fppi_levels)
+    plt.legend()
+    plt.ylim(0.0, 1.0)  # Adjust ylim based on your data range
+
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(f'/Users/john/Projects/SOTAEvaluationNoduleDetection/miccai_fair_ai/{model}_{flavour}_{protected_group}.png')
+    plt.show() 
+
