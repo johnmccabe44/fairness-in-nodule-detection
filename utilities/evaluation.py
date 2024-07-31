@@ -3,13 +3,17 @@ import csv
 from pathlib import Path
 import os
 import math
+import shutil
 import sys
+from sklearn.utils import resample
+from sympy import ground_roots, intersection, use
 from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter,LogFormatter,StrMethodFormatter,FixedFormatter
 import sklearn.metrics as skl_metrics
 import numpy as np
+import pandas as pd
 
 # Evaluation settings
 bPerformBootstrapping = True
@@ -161,7 +165,7 @@ def computeFROC_bootstrap(FROCGTList,FROCProbList,FPDivisorList,FROCImList,exclu
         #print('computing FROC: bootstrap %d/%d' % (i,numberOfBootstrapSamples))
         # Generate a bootstrapped set
         btpsamp = generateBootstrapSet(scanToCandidatesDict,FROCImList_np)
-        fps, sens, thresholds = computeFROC(btpsamp[0,:],btpsamp[1,:],len(FROCImList_np),btpsamp[2,:])
+        fps, sens, thresholds = computeFROC(btpsamp[0,:],btpsamp[1,:],len(FROCImList_np),btpsamp[2,:], i)
     
         fps_lists.append(fps)
         sens_lists.append(sens)
@@ -175,12 +179,15 @@ def computeFROC_bootstrap(FROCGTList,FROCProbList,FPDivisorList,FROCImList,exclu
     for i in range(numberOfBootstrapSamples):
         interp_sens[i,:] = np.interp(all_fps, fps_lists[i], sens_lists[i])
     
+
+    np.save('/Users/john/Projects/SOTAEvaluationNoduleDetection/utilities/bootstraps/all_fps.npy', interp_sens)
+
     # compute mean and CI
     sens_mean,sens_lb,sens_up = compute_mean_ci(interp_sens, confidence = confidence)
 
     return all_fps, sens_mean, sens_lb, sens_up
 
-def computeFROC(FROCGTList, FROCProbList, totalNumberOfImages, excludeList):
+def computeFROC(FROCGTList, FROCProbList, totalNumberOfImages, excludeList, bootstrap_cnt=None):
     # Remove excluded candidates
     FROCGTList_local = []
     FROCProbList_local = []
@@ -188,7 +195,6 @@ def computeFROC(FROCGTList, FROCProbList, totalNumberOfImages, excludeList):
         if excludeList[i] == False:
             FROCGTList_local.append(FROCGTList[i])
             FROCProbList_local.append(FROCProbList[i])
-    
     numberOfDetectedLesions = sum(FROCGTList_local)
     totalNumberOfLesions = sum(FROCGTList)
     totalNumberOfCandidates = len(FROCProbList_local)
@@ -437,7 +443,7 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
     nodOutputfile.write("    Average number of candidates per scan: %.9f\n" % (float(totalNumberOfCands) / float(len(seriesUIDs))))
 
     # compute FROC
-    fps, sens, thresholds = computeFROC(FROCGTList,FROCProbList,len(seriesUIDs),excludeList)
+    fps, sens, thresholds = computeFROC(FROCGTList,FROCProbList,len(seriesUIDs),excludeList, None)
     
     if performBootstrapping:
         fps_bs_itp,sens_bs_mean,sens_bs_lb,sens_bs_up = computeFROC_bootstrap(FROCGTList,FROCProbList,FPDivisorList,seriesUIDs,excludeList,
@@ -611,8 +617,130 @@ def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,serie
                 confidence=bConfidence,
                 filter=filter,
                 show_froc=show_froc)
+    
+
+    Path(outputDir,'Bootstraps').mkdir(parents=True, exist_ok=True)
+    try:
+        shutil.move('/Users/john/Projects/SOTAEvaluationNoduleDetection/utilities/bootstraps/all_fps.npy', Path(outputDir, 'all_fps.npy'))
+
+        print(f'copying bootstraps to {outputDir} directory') 
+    except:
+        pass
 
     return (fps, sens, thresholds, fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up, fps_itp, sens_itp)
+
+def compute_iou(pred_box, gt_box):
+    x_pred, y_pred, z_pred, d_pred = pred_box
+    x_gt, y_gt, z_gt, d_gt = gt_box
+
+    pred_min = np.array([x_pred - d_pred/2, y_pred - d_pred/2, z_pred - d_pred/2])
+    pred_max = np.array([x_pred + d_pred/2, y_pred + d_pred/2, z_pred + d_pred/2])
+    gt_min = np.array([x_gt - d_gt/2, y_gt - d_gt/2, z_gt - d_gt/2])
+    gt_max = np.array([x_gt + d_gt/2, y_gt + d_gt/2, z_gt + d_gt/2])
+
+    intersection_min = np.maximum(pred_min, gt_min)
+    intersection_max = np.minimum(pred_max, gt_max)
+    intersection = np.maximum(intersection_max - intersection_min, 0)
+
+    intersection_volume = np.prod(intersection)
+    pred_volume = np.prod(pred_max - pred_min)
+    gt_volume = np.prod(gt_max - gt_min)
+
+    iou = intersection_volume / (pred_volume + gt_volume - intersection_volume)
+    return iou
+
+def calculate_precision_recall(predictions_and_ground_truths, iou_threshold=0.5):
+    tp = 0
+    fp = 0
+    fn = 0
+
+    for predictions, ground_truths in predictions_and_ground_truths:
+        for i, pred in predictions.iterrows():
+            pred_box = (pred[coordX_label], pred[coordY_label], pred[coordZ_label], pred[diameter_mm_label])
+            best_iou = 0
+            this_tp = 0
+            for j, gt in ground_truths.iterrows():                
+                gt_box = (gt[coordX_label], gt[coordY_label], gt[coordZ_label], gt[diameter_mm_label])
+
+                iou = compute_iou(pred_box, gt_box)
+                if iou > best_iou:
+                    best_iou = iou
+
+            if best_iou > iou_threshold:
+                tp += 1
+            else:
+                fp += 1
+
+    fn = sum(len(ground_truths) for (_, ground_truths) in predictions_and_ground_truths) - tp
+    precision = tp / (tp + fp) if tp + fp > 0 else 0
+    recall = tp / (tp + fn) if tp + fn > 0 else 0
+
+    return precision, recall
+
+def calculate_AP(precisions, recalls):
+    indices = np.argsort(recalls)
+    recalls = recalls[indices]
+    precisions = precisions[indices]
+
+    for i in range(len(precisions) - 1, 0, -1):
+        precisions[i-1] = max(precisions[i-1], precisions[i])
+
+    ap = 0
+    for i in range(1, len(recalls)):
+        ap += (recalls[i] - recalls[i-1]) * precisions[i]
+
+    return ap
+
+def calculate_mAP(predictions_and_ground_truths, threshold_range=(0.10, 0.55, 0.05)):
+
+    iou_thresholds = np.arange(threshold_range[0], threshold_range[1], threshold_range[2])
+    aps = []
+
+    for threshold in iou_thresholds:
+        precisions = []
+        recalls = []
+
+        precision, recall = calculate_precision_recall(predictions_and_ground_truths, threshold)
+        precisions.append(precision)
+        recalls.append(recall)
+
+        ap = calculate_AP(precisions, recalls)
+        aps.append(ap)
+
+    mAP = np.mean(aps)
+    print(f'mAP: {mAP}')
+
+    return mAP
+
+def calculate_metrics(ground_truths, predictions, threshold_range=(0.10, 0.55, 0.05), use_bootstrapping=False):
+
+    if use_bootstrapping:
+
+        predictions_and_ground_truths = [
+            (
+                predictions[predictions['name'] == scan_id],
+                ground_truths[ground_truths['name'] == scan_id]
+            )
+            for scan_id in ground_truths['name'].unique()
+        ]
+
+        bootstrap_mAP = []
+        for i in tqdm(range(1000)):
+            bootstrap_scan_ids = ground_truths['name'].sample(frac=1, replace=True).reset_index(drop=True)
+            bootstrap_sample = resample(
+                predictions_and_ground_truths,
+                replace=True,
+                n_samples=len(bootstrap_scan_ids),
+                random_state=42
+            )
+            bootstrap_mAP.append(calculate_mAP(bootstrap_sample, threshold_range))
+        mAP = np.mean(bootstrap_mAP)
+    else:
+        bootstrap_mAP = None
+        mAP = calculate_mAP(predictions_and_ground_truths, threshold_range)
+    
+    return bootstrap_mAP, mAP
+
 
 if __name__ == '__main__':
 
@@ -623,19 +751,30 @@ if __name__ == '__main__':
     #results_filename              = sys.argv[4]
     #outputDir                     = sys.argv[5]
 
-    annotations_filename          = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/nodule_annotations.csv'
-    annotations_excluded_filename = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/nodule_exclude_annotations.csv'
-    seriesuids_filename           = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/scanslist.csv'
-    results_filename              = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/predictions.csv'
-    outputDir                     = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/results'
+    # annotations_filename          = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/nodule_annotations.csv'
+    # annotations_excluded_filename = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/nodule_exclude_annotations.csv'
+    # seriesuids_filename           = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/scanslist.csv'
+    # results_filename              = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/predictions.csv'
+    # outputDir                     = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/results'
 
 
-    # execute only if run as a script
-    noduleCADEvaluation(annotations_filename,
-                        annotations_excluded_filename,
-                        seriesuids_filename,
-                        results_filename,
-                        outputDir,
-                        'filter_None')
+    # # execute only if run as a script
+    # noduleCADEvaluation(annotations_filename,
+    #                     annotations_excluded_filename,
+    #                     seriesuids_filename,
+    #                     results_filename,
+    #                     outputDir,
+    #                     'filter_None')
     
-    print("Finished!")
+    # print("Finished!")
+
+    workspace_path = Path(os.getcwd())
+    flavour = "test_balanced"
+
+    ground_truths = pd.read_csv(f'{workspace_path}/models/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_metadata.csv', usecols=['name', 'col', 'row', 'index', 'diameter'])
+    predictions = (
+        pd.read_csv(f'{workspace_path}/models/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_predictions.csv', usecols=['name', 'col', 'row', 'index', 'diameter', 'threshold'])
+        .rename(columns={'threshold': 'threshold_original'})
+        .assign(threshold=lambda x:(x['threshold_original'] - x['threshold_original'].min()) / (x['threshold_original'].max() - x['threshold_original'].min()))
+    )
+    bootstrap_mAP, mAP = calculate_metrics(ground_truths, predictions, use_bootstrapping=True)

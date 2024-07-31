@@ -1,5 +1,6 @@
 import json
 from operator import is_
+import comm
 from cv2 import norm, normalize
 import numpy as np
 import pandas as pd
@@ -263,7 +264,7 @@ def get_thresholds(analysis_data):
 
     return thresh_values
 
-def miss_anaysis_at_fpps(model, scans_metadata, scans_path, annotations_path, exclusions_path, predictions_path, thresholds, show_froc=False):
+def miss_anaysis_at_fpps(model, experiment, scans_metadata, scans_path, annotations_path, exclusions_path, predictions_path, thresholds, show_froc=False):
     """
     Get the missed annotations at different FPPs
 
@@ -318,7 +319,9 @@ def miss_anaysis_at_fpps(model, scans_metadata, scans_path, annotations_path, ex
                 how='left'
             )
 
-            df.to_csv(f'{workspace_path}/notebooks/FairnessInNoduleDetectionAlgorithms/hits_and_misses/{model}/hits_and_misses_{idx}', index=False)
+            md_output_dir = Path(f'{workspace_path}/notebooks/FairnessInNoduleDetectionAlgorithms/hits_and_misses/{model}/{experiment}')
+            md_output_dir.mkdir(parents=True, exist_ok=True)
+            df.to_csv(md_output_dir / f'hits_and_misses_{idx}', index=False)
 
             print(f'Missed Annotations at {threshold} FPPs:', sum(df.miss))
             missed_metadata.append(df)
@@ -513,13 +516,48 @@ def copy_numpy_from_cluster(scan_id):
     if not os.path.exists(f'{workspace_path}/models/grt123/prep_result/summit/{scan_id}_clean.npy'):
         command = [
             "scp",
-            f"jmccabe@little:{scan_path}",
+            "-P 2222",
+            f"jmccabe@localhost:{scan_path}",
             f"{workspace_path}/models/grt123/prep_result/summit/."
         ]
         result = subprocess.run(command)
         print(result.stdout)
+        
     else:
         print(f'{scan_id} already exists')
+
+def print_intensity_profile(image_array, row, col, idx, diameter):
+    radius = (diameter / 2) # Increase the radius to ensure the entire nodule is included
+
+    row_start = int(row - radius)
+    row_end = int(row + radius)
+
+    col_start = int(col - radius)
+    col_end = int(col + radius)
+
+    idx_start = int(idx - radius)
+    idx_end = int(idx + radius)
+
+    cropped_image = image_array[idx_start:idx_end, row_start:row_end, col_start:col_end]
+
+    print(f'cropped_image shape: {cropped_image.shape}')
+
+    fig, ax = plt.subplots(1, 1, figsize=(2, 2))
+    ax.imshow(
+        cropped_image[int(cropped_image.shape[0]/2)],
+        cmap='gray'
+    )
+    
+
+    plt.show()
+
+    min_intensity = np.min(cropped_image)
+    mean_intensity = np.mean(cropped_image)
+    max_intensity = np.max(cropped_image)
+
+    print(f'Min Intensity: {min_intensity}, Mean Intensity: {mean_intensity}, Max Intensity: {max_intensity}')
+    return min_intensity, mean_intensity, max_intensity
+
 
 def show_numpy_candidate_location(scan_id, row, col, index, diameter, distance_false_positive, iou_false_positive):
     """
@@ -546,6 +584,13 @@ def show_numpy_candidate_location(scan_id, row, col, index, diameter, distance_f
     label = np.load(label_path)
     print(label)
 
+    try:
+        min_i, mean_i, max_i = print_intensity_profile(scan, row, col, index, diameter)
+    except:
+        print(f'Intensity profile not available for this scan. row: {row}, col: {col}, index: {index}, diameter: {diameter}')    
+        min_i, mean_i, max_i = None, None, None
+
+
     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
     ax.imshow(scan[int(index)], cmap='gray')
 
@@ -554,12 +599,14 @@ def show_numpy_candidate_location(scan_id, row, col, index, diameter, distance_f
     else:
         color = 'r'
 
-
     print(f'{scan_id} - {index} {row} {col} {diameter}\nFalse Positive: {distance_false_positive}\nIoU False Positive: {iou_false_positive}')
+ 
     circle = plt.Circle((int(col), int(row)), diameter * .75, color=color, fill=False)
     ax.add_artist(circle)
     plt.title(f'{scan_id} - {index} {row} {col} {diameter}\nFalse Positive: {distance_false_positive}\nIoU False Positive: {iou_false_positive}')
     plt.show()
+
+    return min_i, mean_i, max_i
 
 def combine_predictions(predictions_json_path, dataset_name, use_nms=True):
     """
@@ -621,10 +668,10 @@ def show_mhd_candidate_location(scan_id, scan, row, col, index, diameter, distan
 
 
     print(f'{scan_id} - {index} {row} {col} {diameter}\nFalse Positive: {distance_false_positive}\nIoU False Positive: {iou_false_positive}')
-    circle = plt.Circle((int(col), int(row)), diameter * .5, color=color, fill=False)
+    circle = plt.Circle((int(col), int(row)), diameter, color=color, fill=False)
     ax.add_artist(circle)
     plt.title(f'{scan_id} - {index} {row} {col} {diameter}\nFalse Positive: {distance_false_positive}\nIoU False Positive: {iou_false_positive}')
-    plt.show()    
+    plt.show()
 
 
 def copy_scan_from_cluster(scan_id):
@@ -635,7 +682,8 @@ def copy_scan_from_cluster(scan_id):
 
         command = [
             "scp",
-            f"jmccabe@little:/cluster/project2/SummitLung50/{study_id}/{scan_id}.*",
+            "-P 2222",
+            f"jmccabe@localhost:/cluster/project2/SummitLung50/{study_id}/{scan_id}.*",
             f"{workspace_path}/data/summit/scans/{study_id}/."
         ]
         result = subprocess.run(command)
