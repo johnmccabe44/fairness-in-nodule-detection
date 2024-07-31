@@ -6,7 +6,7 @@ import math
 import shutil
 import sys
 from sklearn.utils import resample
-from sympy import ground_roots, intersection, use
+# from sympy import ground_roots, intersection, use
 from tqdm import tqdm
 
 import matplotlib.pyplot as plt
@@ -629,117 +629,99 @@ def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,serie
 
     return (fps, sens, thresholds, fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up, fps_itp, sens_itp)
 
-def compute_iou(pred_box, gt_box):
-    x_pred, y_pred, z_pred, d_pred = pred_box
-    x_gt, y_gt, z_gt, d_gt = gt_box
+import numpy as np
+from sklearn.metrics import precision_recall_curve, auc
 
-    pred_min = np.array([x_pred - d_pred/2, y_pred - d_pred/2, z_pred - d_pred/2])
-    pred_max = np.array([x_pred + d_pred/2, y_pred + d_pred/2, z_pred + d_pred/2])
-    gt_min = np.array([x_gt - d_gt/2, y_gt - d_gt/2, z_gt - d_gt/2])
-    gt_max = np.array([x_gt + d_gt/2, y_gt + d_gt/2, z_gt + d_gt/2])
-
-    intersection_min = np.maximum(pred_min, gt_min)
-    intersection_max = np.minimum(pred_max, gt_max)
-    intersection = np.maximum(intersection_max - intersection_min, 0)
-
-    intersection_volume = np.prod(intersection)
-    pred_volume = np.prod(pred_max - pred_min)
-    gt_volume = np.prod(gt_max - gt_min)
-
-    iou = intersection_volume / (pred_volume + gt_volume - intersection_volume)
-    return iou
-
-def calculate_precision_recall(predictions_and_ground_truths, iou_threshold=0.5):
-    tp = 0
-    fp = 0
-    fn = 0
-
-    for predictions, ground_truths in predictions_and_ground_truths:
-        for i, pred in predictions.iterrows():
-            pred_box = (pred[coordX_label], pred[coordY_label], pred[coordZ_label], pred[diameter_mm_label])
-            best_iou = 0
-            this_tp = 0
-            for j, gt in ground_truths.iterrows():                
-                gt_box = (gt[coordX_label], gt[coordY_label], gt[coordZ_label], gt[diameter_mm_label])
-
-                iou = compute_iou(pred_box, gt_box)
-                if iou > best_iou:
-                    best_iou = iou
-
-            if best_iou > iou_threshold:
-                tp += 1
-            else:
-                fp += 1
-
-    fn = sum(len(ground_truths) for (_, ground_truths) in predictions_and_ground_truths) - tp
-    precision = tp / (tp + fp) if tp + fp > 0 else 0
-    recall = tp / (tp + fn) if tp + fn > 0 else 0
-
-    return precision, recall
-
-def calculate_AP(precisions, recalls):
-    indices = np.argsort(recalls)
-    recalls = recalls[indices]
-    precisions = precisions[indices]
-
-    for i in range(len(precisions) - 1, 0, -1):
-        precisions[i-1] = max(precisions[i-1], precisions[i])
-
-    ap = 0
-    for i in range(1, len(recalls)):
-        ap += (recalls[i] - recalls[i-1]) * precisions[i]
-
-    return ap
-
-def calculate_mAP(predictions_and_ground_truths, threshold_range=(0.10, 0.55, 0.05)):
-
-    iou_thresholds = np.arange(threshold_range[0], threshold_range[1], threshold_range[2])
-    aps = []
-
-    for threshold in iou_thresholds:
-        precisions = []
-        recalls = []
-
-        precision, recall = calculate_precision_recall(predictions_and_ground_truths, threshold)
-        precisions.append(precision)
-        recalls.append(recall)
-
-        ap = calculate_AP(precisions, recalls)
-        aps.append(ap)
-
-    mAP = np.mean(aps)
-    print(f'mAP: {mAP}')
-
-    return mAP
-
-def calculate_metrics(ground_truths, predictions, threshold_range=(0.10, 0.55, 0.05), use_bootstrapping=False):
-
-    if use_bootstrapping:
-
-        predictions_and_ground_truths = [
-            (
-                predictions[predictions['name'] == scan_id],
-                ground_truths[ground_truths['name'] == scan_id]
-            )
-            for scan_id in ground_truths['name'].unique()
-        ]
-
-        bootstrap_mAP = []
-        for i in tqdm(range(1000)):
-            bootstrap_scan_ids = ground_truths['name'].sample(frac=1, replace=True).reset_index(drop=True)
-            bootstrap_sample = resample(
-                predictions_and_ground_truths,
-                replace=True,
-                n_samples=len(bootstrap_scan_ids),
-                random_state=42
-            )
-            bootstrap_mAP.append(calculate_mAP(bootstrap_sample, threshold_range))
-        mAP = np.mean(bootstrap_mAP)
-    else:
-        bootstrap_mAP = None
-        mAP = calculate_mAP(predictions_and_ground_truths, threshold_range)
+def iou(boxA, boxB):
+    # Compute intersection
+    xA = max(boxA[0], boxB[0])
+    yA = max(boxA[1], boxB[1])
+    xB = min(boxA[2], boxB[2])
+    yB = min(boxA[3], boxB[3])
+    interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
     
-    return bootstrap_mAP, mAP
+    # Compute union
+    boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
+    boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
+    unionArea = boxAArea + boxBArea - interArea
+    
+    return interArea / unionArea
+
+def compute_ap(precisions, recalls):
+    # Compute the area under the precision-recall curve
+    return auc(recalls, precisions)
+
+def evaluate_predictions(gt_boxes, pred_boxes, pred_scores, iou_threshold=0.5):
+    TPs, FPs, FNs = [], [], []
+    for pred_box, score in zip(pred_boxes, pred_scores):
+        matched = False
+        for gt_box in gt_boxes:
+            if iou(pred_box, gt_box) > iou_threshold:
+                TPs.append(score)
+                matched = True
+                gt_boxes.remove(gt_box)
+                break
+        if not matched:
+            FPs.append(score)
+    FNs.extend([0] * len(gt_boxes))
+    
+    return TPs, FPs, FNs
+
+def calculate_map(gt_annotations, pred_annotations, iou_threshold=0.5):
+    aps = []
+    for class_id in gt_annotations.keys():
+        gt_boxes = gt_annotations[class_id]
+        pred_boxes = pred_annotations[class_id]['boxes']
+        pred_scores = pred_annotations[class_id]['scores']
+        
+        TPs, FPs, FNs = evaluate_predictions(gt_boxes, pred_boxes, pred_scores, iou_threshold)
+        
+        precisions, recalls, _ = precision_recall_curve([1]*len(TPs) + [0]*len(FPs), TPs + FPs)
+        ap = compute_ap(precisions, recalls)
+        aps.append(ap)
+    
+    return np.mean(aps)
+
+def bootstrap_evaluation(gt_annotations, pred_annotations, gender_labels, n_bootstrap=1000, iou_threshold=0.5):
+    male_indices = [i for i, gender in enumerate(gender_labels) if gender == 'male']
+    female_indices = [i for i, gender in enumerate(gender_labels) if gender == 'female']
+    
+    male_maps = []
+    female_maps = []
+    
+    for _ in range(n_bootstrap):
+        male_sample_indices = np.random.choice(male_indices, len(male_indices), replace=True)
+        female_sample_indices = np.random.choice(female_indices, len(female_indices), replace=True)
+        
+        male_gt_sample = {class_id: [gt_annotations[class_id][i] for i in male_sample_indices] for class_id in gt_annotations.keys()}
+        male_pred_sample = {class_id: {'boxes': [pred_annotations[class_id]['boxes'][i] for i in male_sample_indices],
+                                       'scores': [pred_annotations[class_id]['scores'][i] for i in male_sample_indices]}
+                            for class_id in pred_annotations.keys()}
+        
+        female_gt_sample = {class_id: [gt_annotations[class_id][i] for i in female_sample_indices] for class_id in gt_annotations.keys()}
+        female_pred_sample = {class_id: {'boxes': [pred_annotations[class_id]['boxes'][i] for i in female_sample_indices],
+                                         'scores': [pred_annotations[class_id]['scores'][i] for i in female_sample_indices]}
+                              for class_id in pred_annotations.keys()}
+        
+        male_map = calculate_map(male_gt_sample, male_pred_sample, iou_threshold)
+        female_map = calculate_map(female_gt_sample, female_pred_sample, iou_threshold)
+        
+        male_maps.append(male_map)
+        female_maps.append(female_map)
+    
+    return male_maps, female_maps
+
+# Example Usage
+gt_annotations = { 'class_1': [[x1, y1, x2, y2], ...], ... }
+pred_annotations = { 'class_1': {'boxes': [[x1, y1, x2, y2], ...], 'scores': [0.9, 0.8, ...]}, ... }
+gender_labels = ['male', 'female', ...]
+
+male_maps, female_maps = bootstrap_evaluation(gt_annotations, pred_annotations, gender_labels)
+
+# Perform statistical tests
+import scipy.stats as stats
+t_stat, p_value = stats.ttest_ind(male_maps, female_maps)
+print(f"t-statistic: {t_stat}, p-value: {p_value}")
 
 
 if __name__ == '__main__':
@@ -777,4 +759,7 @@ if __name__ == '__main__':
         .rename(columns={'threshold': 'threshold_original'})
         .assign(threshold=lambda x:(x['threshold_original'] - x['threshold_original'].min()) / (x['threshold_original'].max() - x['threshold_original'].min()))
     )
-    bootstrap_mAP, mAP = calculate_metrics(ground_truths, predictions, use_bootstrapping=True)
+
+
+    print(np.histogram(predictions.threshold, bins=10))
+    bootstrap_mAP, mAP = calculate_metrics(ground_truths, predictions, threshold_range=(0.10, 1.00, 0.1), use_bootstrapping=True)
