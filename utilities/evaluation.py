@@ -1,10 +1,13 @@
 
 import csv
+from functools import partial
+from multiprocessing import Pool
 from pathlib import Path
 import os
 import math
 import shutil
 import sys
+from matplotlib.pylab import f
 from sklearn.utils import resample
 # from sympy import ground_roots, intersection, use
 from tqdm import tqdm
@@ -14,6 +17,10 @@ from matplotlib.ticker import ScalarFormatter,LogFormatter,StrMethodFormatter,Fi
 import sklearn.metrics as skl_metrics
 import numpy as np
 import pandas as pd
+
+import warnings
+
+warnings.filterwarnings("ignore")
 
 # Evaluation settings
 bPerformBootstrapping = True
@@ -630,99 +637,109 @@ def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,serie
     return (fps, sens, thresholds, fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up, fps_itp, sens_itp)
 
 import numpy as np
-from sklearn.metrics import precision_recall_curve, auc
+from sklearn.metrics import average_precision_score, precision_recall_curve, auc
+import random
 
 def iou(boxA, boxB):
-    # Compute intersection
-    xA = max(boxA[0], boxB[0])
-    yA = max(boxA[1], boxB[1])
-    xB = min(boxA[2], boxB[2])
-    yB = min(boxA[3], boxB[3])
-    interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+    xA = max(boxA[0] - boxA[3]/2, boxB[0] - boxB[3]/2)
+    yA = max(boxA[1] - boxA[3]/2, boxB[1] - boxB[3]/2)
+    zA = max(boxA[2] - boxA[3]/2, boxB[2] - boxB[3]/2)
+    xB = min(boxA[0] + boxA[3]/2, boxB[0] + boxB[3]/2)
+    yB = min(boxA[1] + boxA[3]/2, boxB[1] + boxB[3]/2)
+    zB = min(boxA[2] + boxA[3]/2, boxB[2] + boxB[3]/2)
+    interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1) * max(0, zB - zA + 1)
     
-    # Compute union
-    boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
-    boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
+    boxAArea = (boxA[3] + 1) ** 3
+    boxBArea = (boxB[3] + 1) ** 3
     unionArea = boxAArea + boxBArea - interArea
     
     return interArea / unionArea
 
-def compute_ap(precisions, recalls):
-    # Compute the area under the precision-recall curve
-    return auc(recalls, precisions)
-
-def evaluate_predictions(gt_boxes, pred_boxes, pred_scores, iou_threshold=0.5):
+def evaluate_scan(gt_boxes, pred_boxes, pred_scores, iou_threshold=0.5):
     TPs, FPs, FNs = [], [], []
+    matched_gt_boxes = set()
+    
     for pred_box, score in zip(pred_boxes, pred_scores):
         matched = False
-        for gt_box in gt_boxes:
-            if iou(pred_box, gt_box) > iou_threshold:
+        for i, gt_box in enumerate(gt_boxes):
+            if i not in matched_gt_boxes and iou(pred_box, gt_box) > iou_threshold:
                 TPs.append(score)
                 matched = True
-                gt_boxes.remove(gt_box)
+                matched_gt_boxes.add(i)
                 break
         if not matched:
             FPs.append(score)
-    FNs.extend([0] * len(gt_boxes))
+    
+    FNs.extend([0] * (len(gt_boxes) - len(matched_gt_boxes)))
     
     return TPs, FPs, FNs
 
-def calculate_map(gt_annotations, pred_annotations, iou_threshold=0.5):
+def calculate_map_per_scan(gt_annotations, pred_annotations, iou_threshold=0.5):
     aps = []
-    for class_id in gt_annotations.keys():
-        gt_boxes = gt_annotations[class_id]
-        pred_boxes = pred_annotations[class_id]['boxes']
-        pred_scores = pred_annotations[class_id]['scores']
+    for scan_id in gt_annotations.keys():
+        gt_boxes = gt_annotations[scan_id]
+        pred_boxes = pred_annotations[scan_id]['boxes']
+        pred_scores = pred_annotations[scan_id]['scores']
         
-        TPs, FPs, FNs = evaluate_predictions(gt_boxes, pred_boxes, pred_scores, iou_threshold)
+        TPs, FPs, FNs = evaluate_scan(gt_boxes, pred_boxes, pred_scores, iou_threshold)
         
-        precisions, recalls, _ = precision_recall_curve([1]*len(TPs) + [0]*len(FPs), TPs + FPs)
-        ap = compute_ap(precisions, recalls)
-        aps.append(ap)
+        
+        if len(TPs) + len(FPs) == 0:
+            # If there are no predictions
+            if len(gt_boxes) > 0:
+                ap = 0.0  # No predictions, but there are ground truths, so AP is 0
+            else:
+                ap = 1.0  # No predictions and no ground truths, perfect AP
+        else:
+            y_true = [1] * len(TPs) + [0] * len(FPs)
+            y_scores = TPs + FPs
+            ap = average_precision_score(y_true, y_scores)
     
+        aps.append(ap)
+
     return np.mean(aps)
 
-def bootstrap_evaluation(gt_annotations, pred_annotations, gender_labels, n_bootstrap=1000, iou_threshold=0.5):
-    male_indices = [i for i, gender in enumerate(gender_labels) if gender == 'male']
-    female_indices = [i for i, gender in enumerate(gender_labels) if gender == 'female']
-    
-    male_maps = []
-    female_maps = []
-    
-    for _ in range(n_bootstrap):
-        male_sample_indices = np.random.choice(male_indices, len(male_indices), replace=True)
-        female_sample_indices = np.random.choice(female_indices, len(female_indices), replace=True)
-        
-        male_gt_sample = {class_id: [gt_annotations[class_id][i] for i in male_sample_indices] for class_id in gt_annotations.keys()}
-        male_pred_sample = {class_id: {'boxes': [pred_annotations[class_id]['boxes'][i] for i in male_sample_indices],
-                                       'scores': [pred_annotations[class_id]['scores'][i] for i in male_sample_indices]}
-                            for class_id in pred_annotations.keys()}
-        
-        female_gt_sample = {class_id: [gt_annotations[class_id][i] for i in female_sample_indices] for class_id in gt_annotations.keys()}
-        female_pred_sample = {class_id: {'boxes': [pred_annotations[class_id]['boxes'][i] for i in female_sample_indices],
-                                         'scores': [pred_annotations[class_id]['scores'][i] for i in female_sample_indices]}
-                              for class_id in pred_annotations.keys()}
-        
-        male_map = calculate_map(male_gt_sample, male_pred_sample, iou_threshold)
-        female_map = calculate_map(female_gt_sample, female_pred_sample, iou_threshold)
-        
-        male_maps.append(male_map)
-        female_maps.append(female_map)
-    
-    return male_maps, female_maps
+def bootstrap_evaluation(task_index, gt_annotations, pred_annotations, number_of_samples, iou_threshold=0.1):
 
-# Example Usage
-gt_annotations = { 'class_1': [[x1, y1, x2, y2], ...], ... }
-pred_annotations = { 'class_1': {'boxes': [[x1, y1, x2, y2], ...], 'scores': [0.9, 0.8, ...]}, ... }
-gender_labels = ['male', 'female', ...]
+        np.random.seed(task_index)
+        sample_names = np.random.choice(list(gt_annotations.keys()), number_of_samples, replace=True)
+        
+        gt_sample = {i: gt_annotations[name] for i, name in enumerate(sample_names)}
+        pred_sample = {i: pred_annotations[name] for i, name in enumerate(sample_names)}
+        mAP = calculate_map_per_scan(gt_sample, pred_sample, iou_threshold)
 
-male_maps, female_maps = bootstrap_evaluation(gt_annotations, pred_annotations, gender_labels)
+        return mAP
 
-# Perform statistical tests
-import scipy.stats as stats
-t_stat, p_value = stats.ttest_ind(male_maps, female_maps)
-print(f"t-statistic: {t_stat}, p-value: {p_value}")
+def pool_bootstrap_evaluation(gt_annotations, pred_annotations, number_of_samples, n_bootstrap=1000, iou_threshold=0.1, workers=1):
 
+    mAPs = []
+    if workers == 1:
+
+        for task_index in tqdm(range(n_bootstrap)):
+            mAP = bootstrap_evaluation(task_index, gt_annotations, pred_annotations, number_of_samples, iou_threshold=iou_threshold)
+            mAPs.append(mAP)
+    else:
+
+        with Pool(workers) as pool:
+            worker_func = partial(bootstrap_evaluation, 
+                                  gt_annotations=gt_annotations,
+                                  pred_annotations=pred_annotations,
+                                  number_of_samples=number_of_samples,
+                                  iou_threshold=iou_threshold)
+            
+            for result in tqdm(pool.imap(worker_func, range(n_bootstrap)), total=n_bootstrap):
+                mAPs.append(result)
+
+    return mAPs
+
+def calculate_ci(map_values, ci=0.95):
+    alpha = 1 - ci
+    p = ((1.0 - alpha) / 2.0) * 100
+    lower = max(0.0, np.percentile(map_values, p))
+    p = (alpha + ((1.0 - alpha) / 2.0)) * 100
+    upper = min(1.0, np.percentile(map_values, p))
+
+    return f'{round(np.mean(map_values),2)} (CI 95% {round(lower,2)}-{round(upper,2)})'
 
 if __name__ == '__main__':
 
@@ -750,16 +767,168 @@ if __name__ == '__main__':
     
     # print("Finished!")
 
+    # Perform statistical tests
+    import scipy.stats as stats
+
     workspace_path = Path(os.getcwd())
-    flavour = "test_balanced"
+    flavours = ["test_balanced", "male_only","balanced_white_only"]
+    # flavours = ["male_only"]
 
-    ground_truths = pd.read_csv(f'{workspace_path}/models/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_metadata.csv', usecols=['name', 'col', 'row', 'index', 'diameter'])
-    predictions = (
-        pd.read_csv(f'{workspace_path}/models/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_predictions.csv', usecols=['name', 'col', 'row', 'index', 'diameter', 'threshold'])
-        .rename(columns={'threshold': 'threshold_original'})
-        .assign(threshold=lambda x:(x['threshold_original'] - x['threshold_original'].min()) / (x['threshold_original'].max() - x['threshold_original'].min()))
-    )
+    n_boostraps = 1000
+
+    mean_mAPS = {}
+    mAPs = {}
+    ttest_stats = {}
+
+    for model in ['grt123', 'detection']:
+
+        ttest_stats[model] = {}
+        mean_mAPS[model] = {}
+        mAPs[model] = {}
+
+        for flavour in flavours:
+
+            print('Running evaluation for flavour:', flavour)
+
+            ttest_stats[model][flavour] = {}
+            mean_mAPS[model][flavour] = {'gender':{}, 'ethnic_group':{}}
+            mAPs[model][flavour] = {'gender':{}, 'ethnic_group':{}}
+
+            # dataframes
+            if model == 'grt123':
+                all_ground_truths = pd.read_csv(
+                    f'{workspace_path}/models/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_metadata.csv',
+                    usecols=['name', 'col', 'row', 'index', 'diameter', 'gender', 'ethnic_group','management_plan']
+                )
+
+                all_predictions = (
+                    pd.read_csv(
+                        f'{workspace_path}/models/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_predictions.csv',
+                        usecols=['name', 'col', 'row', 'index', 'diameter', 'threshold']
+                    )
+                    .rename(columns={'threshold': 'threshold_original'})
+                    .assign(threshold=lambda x: 1 / (1 + np.exp(-x['threshold_original'])))
+                )
+
+            else:
+                all_ground_truths = pd.read_csv(
+                    f'{workspace_path}/models/detection/result/trained_summit/summit/{flavour}/annotations.csv',
+                    usecols=['name', 'col', 'row', 'index', 'diameter', 'gender', 'ethnic_group','management_plan']
+                )
+
+                all_predictions = pd.read_csv(
+                    f'{workspace_path}/models/detection/result/trained_summit/summit/{flavour}/predictions.csv',
+                    usecols=['name', 'col', 'row', 'index', 'diameter', 'threshold']
+                )
+
+            male = all_ground_truths['gender']=='MALE'
+            female = all_ground_truths['gender']=='FEMALE'
+
+            number_of_samples = min(sum(male),sum(female))
+
+            print(f"Flavour: {flavour}, Comparison: Gender")
+
+            actionable = all_ground_truths['management_plan'].isin(['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1'])
+
+            print('Evaluating gender')
+
+            for gender in ['MALE','FEMALE']:
+
+                try:
+                    ground_truths = all_ground_truths[(all_ground_truths['gender']==gender)&(actionable)]
+                    predictions = all_predictions[all_predictions['name'].isin(ground_truths['name'].values)]
+
+                    print(f'{flavour} ... {gender} ... {len(ground_truths)}')
+
+                    # convert to dict
+                    gt_annotations = ground_truths.groupby('name').apply(lambda x: x[['col', 'row', 'index', 'diameter']].values.tolist()).to_dict()
+                    pred_annotations = predictions.groupby('name').apply(lambda x: {'boxes': x[['col', 'row', 'index', 'diameter']].values.tolist(), 'scores': x['threshold'].values.tolist()}).to_dict()
+
+                    # Example Usage
+                    # gt_annotations = { 0: [[x1, y1, x2, y2], ...], 1: [[x1, y1, x2, y2], ...], ... }
+                    # pred_annotations = { 0: {'boxes': [[x1, y1, x2, y2], ...], 'scores': [0.9, 0.8, ...]}, 1: {'boxes': [[x1, y1, x2, y2], ...], 'scores': [0.9, 0.8, ...]}, ... }
+                            
+                    mAPs[model][flavour]['gender'][gender] = pool_bootstrap_evaluation(gt_annotations, pred_annotations, len(ground_truths), n_bootstrap=n_boostraps, workers=4)
+                except:
+                    print(f"No actionable cases for {flavour}, {gender}")
+
+                        
+            try:                      
+                mean_mAPS[model][flavour]['gender']['MALE'] = calculate_ci(mAPs[model][flavour]['gender']['MALE'])
+                mean_mAPS[model][flavour]['gender']['FEMALE'] = calculate_ci(mAPs[model][flavour]['gender']['FEMALE'])
+
+                # Calculate and print the mean average precision (mAP) scores for each gender
+                print("Mean Average Precision (mAP) Scores:")
+                print(f"Male: {np.mean(mAPs[model][flavour]['gender']['MALE'])}")
+                print(f"Female: {np.mean(mAPs[model][flavour]['gender']['FEMALE'])}")
+
+                t_stat, p_value = stats.ttest_ind(mAPs[model][flavour]['gender']['MALE'], mAPs[model][flavour]['gender']['FEMALE'])
+                print(f"{flavour}, MaleVsFemale t-statistic: {t_stat}, p-value: {p_value}")
+                ttest_stats[model][flavour]['MaleVsFemale'] = {'t_stat': t_stat, 'p_value': p_value}
+            except:
+                print(f"No actionable cases for {flavour}, gender")
+
+            for ethnic_group in ['Asian or Asian British', 'Black', 'White']:
 
 
-    print(np.histogram(predictions.threshold, bins=10))
-    bootstrap_mAP, mAP = calculate_metrics(ground_truths, predictions, threshold_range=(0.10, 1.00, 0.1), use_bootstrapping=True)
+                try:
+                    ground_truths = all_ground_truths[(all_ground_truths['ethnic_group']==ethnic_group)&(actionable)]
+                    predictions = all_predictions[all_predictions['name'].isin(ground_truths['name'].values)]
+
+                    print(f'{model} ... {flavour} ... {ethnic_group} ... {len(ground_truths)}')
+
+                    # convert to dict
+                    gt_annotations = ground_truths.groupby('name').apply(lambda x: x[['col', 'row', 'index', 'diameter']].values.tolist()).to_dict()
+                    pred_annotations = predictions.groupby('name').apply(lambda x: {'boxes': x[['col', 'row', 'index', 'diameter']].values.tolist(), 'scores': x['threshold'].values.tolist()}).to_dict()
+
+                    # Example Usage
+                    # gt_annotations = { 0: [[x1, y1, x2, y2], ...], 1: [[x1, y1, x2, y2], ...], ... }
+                    # pred_annotations = { 0: {'boxes': [[x1, y1, x2, y2], ...], 'scores': [0.9, 0.8, ...]}, 1: {'boxes': [[x1, y1, x2, y2], ...], 'scores': [0.9, 0.8, ...]}, ... }
+
+                    mAPs[model][flavour]['ethnic_group'][ethnic_group] = pool_bootstrap_evaluation(gt_annotations, pred_annotations, len(ground_truths), n_bootstrap=n_boostraps, workers=4)
+                except:
+                    print(f"No actionable cases for {flavour},{ethnic_group}")
+
+            try:
+                mean_mAPS[model][flavour]['ethnic_group']['Asian or Asian British'] = calculate_ci(mAPs[model][flavour]['ethnic_group']['Asian or Asian British'])
+                mean_mAPS[model][flavour]['ethnic_group']['Black'] = calculate_ci(mAPs[model][flavour]['ethnic_group']['Black'])
+                mean_mAPS[model][flavour]['ethnic_group']['White'] = calculate_ci(mAPs[model][flavour]['ethnic_group']['White'])
+
+                # Calculate and print the mean average precision (mAP) scores for each gender
+                print("Mean Average Precision (mAP) Scores:")
+                print(f"Asian or Asian British: {np.mean(mAPs[model][flavour]['ethnic_group']['Asian or Asian British'])}")
+                print(f"Black: {np.mean(mAPs[model][flavour]['ethnic_group']['Black'])}")
+                print(f"White: {np.mean(mAPs[model][flavour]['ethnic_group']['White'])}")
+
+                t_stat, p_value = stats.ttest_ind(mAPs[model][flavour]['ethnic_group']['Asian or Asian British'], mAPs[model][flavour]['ethnic_group']['Black'])
+                print(f"{flavour}, AsianVsBlack t-statistic: {t_stat}, p-value: {p_value}")
+                ttest_stats[model][flavour]['AsianVsBlack'] = {'t_stat': t_stat, 'p_value': p_value}
+
+                t_stat, p_value = stats.ttest_ind(mAPs[model][flavour]['ethnic_group']['Asian or Asian British'], mAPs[model][flavour]['ethnic_group']['White'])
+                print(f"{flavour}, AsianVsWhite t-statistic: {t_stat}, p-value: {p_value}")
+                ttest_stats[model][flavour]['AsianVsWhite'] = {'t_stat': t_stat, 'p_value': p_value}        
+
+                t_stat, p_value = stats.ttest_ind(mAPs[model][flavour]['ethnic_group']['Black'], mAPs[model][flavour]['ethnic_group']['White'])
+                print(f"{flavour}, BlackVsWhite t-statistic: {t_stat}, p-value: {p_value}")
+                ttest_stats[model][flavour]['BlackVsWhite'] = {'t_stat': t_stat, 'p_value': p_value}   
+            except:
+                print(f"No actionable cases for {flavour}, ethnic group")
+
+    # Save results
+    def flatten_dict(mean_mAPs):
+        flattened = {}
+        for model, values in mean_mAPs.items():
+            for flavour, values in values.items():
+                for demog, values in values.items():
+                    for metric, value in values.items():
+                        flattened[f'{model},{flavour},{demog},{metric}'] = value
+        return flattened
+    
+
+    # write out results
+    import json
+    open('/Users/john/Projects/SOTAEvaluationNoduleDetection/notebooks/FairnessInNoduleDetectionAlgorithms/results/mAPs.csv', 'w').write(json.dumps(mean_mAPS))
+    open('/Users/john/Projects/SOTAEvaluationNoduleDetection/notebooks/FairnessInNoduleDetectionAlgorithms/results/ttest_stats.csv', 'w').write(json.dumps(ttest_stats))
+
+    pd.DataFrame.from_dict(flatten_dict(mean_mAPS), orient='index').to_csv('/Users/john/Projects/SOTAEvaluationNoduleDetection/notebooks/FairnessInNoduleDetectionAlgorithms/results/mAPs.csv')
+    pd.DataFrame.from_dict(flatten_dict(ttest_stats), orient='index').to_csv('/Users/john/Projects/SOTAEvaluationNoduleDetection/notebooks/FairnessInNoduleDetectionAlgorithms/results/ttest_stats.csv')
