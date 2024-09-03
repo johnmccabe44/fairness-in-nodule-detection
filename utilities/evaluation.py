@@ -743,192 +743,20 @@ def calculate_ci(map_values, ci=0.95):
 
 if __name__ == '__main__':
 
-
-    #annotations_filename          = sys.argv[1]
-    #annotations_excluded_filename = sys.argv[2]
-    #seriesuids_filename           = sys.argv[3]
-    #results_filename              = sys.argv[4]
-    #outputDir                     = sys.argv[5]
-
-    # annotations_filename          = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/nodule_annotations.csv'
-    # annotations_excluded_filename = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/nodule_exclude_annotations.csv'
-    # seriesuids_filename           = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/scanslist.csv'
-    # results_filename              = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/predictions.csv'
-    # outputDir                     = '/Users/john/Projects/SOTAEvaluationNoduleDetection/output/results/GRT123/trained_summit/all/filter_None/results'
-
-
-    # # execute only if run as a script
-    # noduleCADEvaluation(annotations_filename,
-    #                     annotations_excluded_filename,
-    #                     seriesuids_filename,
-    #                     results_filename,
-    #                     outputDir,
-    #                     'filter_None')
-    
-    # print("Finished!")
-
-    # Perform statistical tests
-    import scipy.stats as stats
-
-    workspace_path = Path(os.getcwd())
-    flavours = ["test_balanced", "male_only","balanced_white_only"]
-    # flavours = ["male_only"]
-
-    n_boostraps = 1000
-
-    mean_mAPS = {}
-    mAPs = {}
-    ttest_stats = {}
-
-    for model in ['grt123', 'detection']:
-
-        ttest_stats[model] = {}
-        mean_mAPS[model] = {}
-        mAPs[model] = {}
-
-        for flavour in flavours:
-
-            print('Running evaluation for flavour:', flavour)
-
-            ttest_stats[model][flavour] = {}
-            mean_mAPS[model][flavour] = {'gender':{}, 'ethnic_group':{}}
-            mAPs[model][flavour] = {'gender':{}, 'ethnic_group':{}}
-
-            # dataframes
-            if model == 'grt123':
-                all_ground_truths = pd.read_csv(
-                    f'{workspace_path}/models/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_metadata.csv',
-                    usecols=['name', 'col', 'row', 'index', 'diameter', 'gender', 'ethnic_group','management_plan']
-                )
-
-                all_predictions = (
-                    pd.read_csv(
-                        f'{workspace_path}/models/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_predictions.csv',
-                        usecols=['name', 'col', 'row', 'index', 'diameter', 'threshold']
-                    )
-                    .rename(columns={'threshold': 'threshold_original'})
-                    .assign(threshold=lambda x: 1 / (1 + np.exp(-x['threshold_original'])))
-                )
-
-            else:
-                all_ground_truths = pd.read_csv(
-                    f'{workspace_path}/models/detection/result/trained_summit/summit/{flavour}/annotations.csv',
-                    usecols=['name', 'col', 'row', 'index', 'diameter', 'gender', 'ethnic_group','management_plan']
-                )
-
-                all_predictions = pd.read_csv(
-                    f'{workspace_path}/models/detection/result/trained_summit/summit/{flavour}/predictions.csv',
-                    usecols=['name', 'col', 'row', 'index', 'diameter', 'threshold']
-                )
-
-            male = all_ground_truths['gender']=='MALE'
-            female = all_ground_truths['gender']=='FEMALE'
-
-            number_of_samples = min(sum(male),sum(female))
-
-            print(f"Flavour: {flavour}, Comparison: Gender")
-
-            actionable = all_ground_truths['management_plan'].isin(['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1'])
-
-            print('Evaluating gender')
-
-            for gender in ['MALE','FEMALE']:
-
-                try:
-                    ground_truths = all_ground_truths[(all_ground_truths['gender']==gender)&(actionable)]
-                    predictions = all_predictions[all_predictions['name'].isin(ground_truths['name'].values)]
-
-                    print(f'{flavour} ... {gender} ... {len(ground_truths)}')
-
-                    # convert to dict
-                    gt_annotations = ground_truths.groupby('name').apply(lambda x: x[['col', 'row', 'index', 'diameter']].values.tolist()).to_dict()
-                    pred_annotations = predictions.groupby('name').apply(lambda x: {'boxes': x[['col', 'row', 'index', 'diameter']].values.tolist(), 'scores': x['threshold'].values.tolist()}).to_dict()
-
-                    # Example Usage
-                    # gt_annotations = { 0: [[x1, y1, x2, y2], ...], 1: [[x1, y1, x2, y2], ...], ... }
-                    # pred_annotations = { 0: {'boxes': [[x1, y1, x2, y2], ...], 'scores': [0.9, 0.8, ...]}, 1: {'boxes': [[x1, y1, x2, y2], ...], 'scores': [0.9, 0.8, ...]}, ... }
-                            
-                    mAPs[model][flavour]['gender'][gender] = pool_bootstrap_evaluation(gt_annotations, pred_annotations, len(ground_truths), n_bootstrap=n_boostraps, workers=4)
-                except:
-                    print(f"No actionable cases for {flavour}, {gender}")
-
-                        
-            try:                      
-                mean_mAPS[model][flavour]['gender']['MALE'] = calculate_ci(mAPs[model][flavour]['gender']['MALE'])
-                mean_mAPS[model][flavour]['gender']['FEMALE'] = calculate_ci(mAPs[model][flavour]['gender']['FEMALE'])
-
-                # Calculate and print the mean average precision (mAP) scores for each gender
-                print("Mean Average Precision (mAP) Scores:")
-                print(f"Male: {np.mean(mAPs[model][flavour]['gender']['MALE'])}")
-                print(f"Female: {np.mean(mAPs[model][flavour]['gender']['FEMALE'])}")
-
-                t_stat, p_value = stats.ttest_ind(mAPs[model][flavour]['gender']['MALE'], mAPs[model][flavour]['gender']['FEMALE'])
-                print(f"{flavour}, MaleVsFemale t-statistic: {t_stat}, p-value: {p_value}")
-                ttest_stats[model][flavour]['MaleVsFemale'] = {'t_stat': t_stat, 'p_value': p_value}
-            except:
-                print(f"No actionable cases for {flavour}, gender")
-
-            for ethnic_group in ['Asian or Asian British', 'Black', 'White']:
-
-
-                try:
-                    ground_truths = all_ground_truths[(all_ground_truths['ethnic_group']==ethnic_group)&(actionable)]
-                    predictions = all_predictions[all_predictions['name'].isin(ground_truths['name'].values)]
-
-                    print(f'{model} ... {flavour} ... {ethnic_group} ... {len(ground_truths)}')
-
-                    # convert to dict
-                    gt_annotations = ground_truths.groupby('name').apply(lambda x: x[['col', 'row', 'index', 'diameter']].values.tolist()).to_dict()
-                    pred_annotations = predictions.groupby('name').apply(lambda x: {'boxes': x[['col', 'row', 'index', 'diameter']].values.tolist(), 'scores': x['threshold'].values.tolist()}).to_dict()
-
-                    # Example Usage
-                    # gt_annotations = { 0: [[x1, y1, x2, y2], ...], 1: [[x1, y1, x2, y2], ...], ... }
-                    # pred_annotations = { 0: {'boxes': [[x1, y1, x2, y2], ...], 'scores': [0.9, 0.8, ...]}, 1: {'boxes': [[x1, y1, x2, y2], ...], 'scores': [0.9, 0.8, ...]}, ... }
-
-                    mAPs[model][flavour]['ethnic_group'][ethnic_group] = pool_bootstrap_evaluation(gt_annotations, pred_annotations, len(ground_truths), n_bootstrap=n_boostraps, workers=4)
-                except:
-                    print(f"No actionable cases for {flavour},{ethnic_group}")
-
-            try:
-                mean_mAPS[model][flavour]['ethnic_group']['Asian or Asian British'] = calculate_ci(mAPs[model][flavour]['ethnic_group']['Asian or Asian British'])
-                mean_mAPS[model][flavour]['ethnic_group']['Black'] = calculate_ci(mAPs[model][flavour]['ethnic_group']['Black'])
-                mean_mAPS[model][flavour]['ethnic_group']['White'] = calculate_ci(mAPs[model][flavour]['ethnic_group']['White'])
-
-                # Calculate and print the mean average precision (mAP) scores for each gender
-                print("Mean Average Precision (mAP) Scores:")
-                print(f"Asian or Asian British: {np.mean(mAPs[model][flavour]['ethnic_group']['Asian or Asian British'])}")
-                print(f"Black: {np.mean(mAPs[model][flavour]['ethnic_group']['Black'])}")
-                print(f"White: {np.mean(mAPs[model][flavour]['ethnic_group']['White'])}")
-
-                t_stat, p_value = stats.ttest_ind(mAPs[model][flavour]['ethnic_group']['Asian or Asian British'], mAPs[model][flavour]['ethnic_group']['Black'])
-                print(f"{flavour}, AsianVsBlack t-statistic: {t_stat}, p-value: {p_value}")
-                ttest_stats[model][flavour]['AsianVsBlack'] = {'t_stat': t_stat, 'p_value': p_value}
-
-                t_stat, p_value = stats.ttest_ind(mAPs[model][flavour]['ethnic_group']['Asian or Asian British'], mAPs[model][flavour]['ethnic_group']['White'])
-                print(f"{flavour}, AsianVsWhite t-statistic: {t_stat}, p-value: {p_value}")
-                ttest_stats[model][flavour]['AsianVsWhite'] = {'t_stat': t_stat, 'p_value': p_value}        
-
-                t_stat, p_value = stats.ttest_ind(mAPs[model][flavour]['ethnic_group']['Black'], mAPs[model][flavour]['ethnic_group']['White'])
-                print(f"{flavour}, BlackVsWhite t-statistic: {t_stat}, p-value: {p_value}")
-                ttest_stats[model][flavour]['BlackVsWhite'] = {'t_stat': t_stat, 'p_value': p_value}   
-            except:
-                print(f"No actionable cases for {flavour}, ethnic group")
-
-    # Save results
-    def flatten_dict(mean_mAPs):
-        flattened = {}
-        for model, values in mean_mAPs.items():
-            for flavour, values in values.items():
-                for demog, values in values.items():
-                    for metric, value in values.items():
-                        flattened[f'{model},{flavour},{demog},{metric}'] = value
-        return flattened
+    workspace_path = '/Users/john/Projects/SOTAEvaluationNoduleDetection'
+    flavour = 'test_balanced'
     
 
-    # write out results
-    import json
-    open('/Users/john/Projects/SOTAEvaluationNoduleDetection/notebooks/FairnessInNoduleDetectionAlgorithms/results/mAPs.csv', 'w').write(json.dumps(mean_mAPS))
-    open('/Users/john/Projects/SOTAEvaluationNoduleDetection/notebooks/FairnessInNoduleDetectionAlgorithms/results/ttest_stats.csv', 'w').write(json.dumps(ttest_stats))
+    x = pd.read_csv(f"{workspace_path}/models/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_predictions.csv")
 
-    pd.DataFrame.from_dict(flatten_dict(mean_mAPS), orient='index').to_csv('/Users/john/Projects/SOTAEvaluationNoduleDetection/notebooks/FairnessInNoduleDetectionAlgorithms/results/mAPs.csv')
-    pd.DataFrame.from_dict(flatten_dict(ttest_stats), orient='index').to_csv('/Users/john/Projects/SOTAEvaluationNoduleDetection/notebooks/FairnessInNoduleDetectionAlgorithms/results/ttest_stats.csv')
+
+    grt123_summit_summit = noduleCADEvaluation(
+        annotations_filename=f'{workspace_path}/models/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_metadata.csv',
+        annotations_excluded_filename=f'{workspace_path}/data/summit/metadata/grt123_annotations_excluded_empty.csv',
+        seriesuids_filename=f'{workspace_path}/metadata/summit/{flavour}/test_scans.csv',
+        results_filename=f"{workspace_path}/models/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_predictions.csv",    
+        filter='\nModel 1 trained on Test Balanced SUMMIT dataset and evaluated on SUMMIT dataset\n',
+        outputDir=f'{workspace_path}/results/grt123/trained_summit/summit/{flavour}',
+    )
+        
+    print("Finished!")
