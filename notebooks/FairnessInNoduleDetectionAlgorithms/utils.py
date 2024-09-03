@@ -55,16 +55,12 @@ def caluclate_cpm_from_bootstrapping(file_path):
     high_cpm = df['high_sens'].mean()
     summary_cpm = df.apply(lambda row: f'{row["mean_sens"]} ({row["low_sens"]} - {row["high_sens"]})', axis=1)
 
-    display(summary_cpm.to_frame().T)
-    display(df)
-    print('Mean Sensitivity:', np.round(mean_cpm,2), 'Low Sensitivity:', np.round(low_cpm,2), 'High Sensitivity:', np.round(high_cpm,3))
-
     return df
 
 def show_metrics(file_path):
     metrics = pd.read_csv(file_path, skiprows=6, sep=':').rename(columns={0:'Metric',1:'Value'}).round(3)
 
-    display(metrics)
+    print(metrics)
 
 def protected_group_analysis(protected_group, scan_metadata, annotations, exclusions, predictions, output_path):
 
@@ -104,7 +100,7 @@ def protected_group_analysis(protected_group, scan_metadata, annotations, exclus
                 if nodule_type in temp_annotations.nodule_type.unique()
             ]
             
-            display(temp_annotations.nodule_type.value_counts(normalize=True).to_frame().T[order].apply(lambda x: round(x*100)))
+            print(temp_annotations.nodule_type.value_counts(normalize=True).to_frame().T[order].apply(lambda x: round(x*100)))
 
             result = noduleCADEvaluation(
                 annotations_filename=temp_dir / 'annotations.csv',
@@ -693,16 +689,13 @@ def copy_scan_from_cluster(scan_id):
 
 
 
-def display_plots_with_error_bars(model, flavour, protected_group, sensitivity_data, order=None):
+def display_plots_with_error_bars(model, flavour, actionable, protected_group, categories, sensitivity_data, output_path):
 
-    if order is None:
-        order = sensitivity_data.keys()
-    else:
-        order = [cat for cat in order if cat in sensitivity_data.keys()]
+    output_path.mkdir(parents=True, exist_ok=True)
 
     cat_increments = {}
-    increment = -0.1 * (len(order) - 1) / 2
-    for idx, cat in enumerate(order):
+    increment = -0.1 * (len(categories) - 1) / 2
+    for idx, cat in enumerate(categories):
         cat_increments[cat] = increment + 0.1 * idx
 
 
@@ -712,7 +705,7 @@ def display_plots_with_error_bars(model, flavour, protected_group, sensitivity_d
     means = {}
     errors = {}
 
-    for cat in order:
+    for cat in categories:
         means[cat] = np.array(sensitivity_data[cat]['mean_sens'])
         errors[cat] = np.array([
             (
@@ -740,6 +733,6 @@ def display_plots_with_error_bars(model, flavour, protected_group, sensitivity_d
 
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(f'/Users/john/Projects/SOTAEvaluationNoduleDetection/miccai_fair_ai/{model}_{flavour}_{protected_group}.png')
-    plt.show() 
+    plt.savefig(f'{output_path}/{model}_{flavour}_Actionable_{actionable}_{protected_group}.png')
+
 
