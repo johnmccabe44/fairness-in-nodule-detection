@@ -1,7 +1,7 @@
 import json
 from operator import is_
 import comm
-from cv2 import norm, normalize
+from cv2 import mean, norm, normalize
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -50,12 +50,13 @@ def caluclate_cpm_from_bootstrapping(file_path):
 
     
     df = pd.DataFrame({'fps': fps, 'mean_sens': mean_sens, 'low_sens': low_sens, 'high_sens': high_sens}).apply(lambda x: np.round(x,3))
+
     mean_cpm = df['mean_sens'].mean()
     low_cpm = df['low_sens'].mean()
     high_cpm = df['high_sens'].mean()
-    summary_cpm = df.apply(lambda row: f'{row["mean_sens"]} ({row["low_sens"]} - {row["high_sens"]})', axis=1)
+    cpm_summary = f'{round(mean_cpm,2)} (95% CI {round(low_cpm,2)}-{round(high_cpm,2)})'
 
-    return df
+    return df, cpm_summary
 
 def show_metrics(file_path):
     metrics = pd.read_csv(file_path, skiprows=6, sep=':').rename(columns={0:'Metric',1:'Value'}).round(3)
@@ -111,7 +112,9 @@ def protected_group_analysis(protected_group, scan_metadata, annotations, exclus
                 outputDir=output_path / cat,
             )
 
-            summary_dict[cat] = caluclate_cpm_from_bootstrapping(output_path / cat / 'froc_predictions_bootstrapping.csv').set_index('fps')
+            summary_dict[cat], _ = caluclate_cpm_from_bootstrapping(output_path / cat / 'froc_predictions_bootstrapping.csv')
+            summary_dict[cat].set_index('fps', inplace=True)
+
             show_metrics(output_path / cat / 'CADAnalysis.txt')
 
             analysis_dict[cat] = (
@@ -260,7 +263,7 @@ def get_thresholds(analysis_data):
 
     return thresh_values
 
-def miss_anaysis_at_fpps(model, experiment, scans_metadata, scans_path, annotations_path, exclusions_path, predictions_path, thresholds, show_froc=False):
+def miss_anaysis_at_fpps(model, experiment, scans_metadata, scans_path, annotations_path, exclusions_path, predictions_path, thresholds, output_path=None, show_froc=False):
     """
     Get the missed annotations at different FPPs
 
@@ -309,15 +312,16 @@ def miss_anaysis_at_fpps(model, experiment, scans_metadata, scans_path, annotati
 
             df = pd.merge(misses, annotations, on=merge_keys, how='right')
             df['miss'] = df['miss'].fillna(False)
-            df = df.merge(
-                scans_metadata[['name','is_actionable','smoking_pack_years','IMDRank_tertile','IMDRank_quintile']],
-                on='name',
-                how='left'
-            )
+            # df = df.merge(
+            #     scans_metadata[['name','is_actionable','smoking_pack_years','IMDRank_tertile','IMDRank_quintile']],
+            #     on='name',
+            #     how='left'
+            # )
 
-            md_output_dir = Path(f'{workspace_path}/notebooks/FairnessInNoduleDetectionAlgorithms/hits_and_misses/{model}/{experiment}')
-            md_output_dir.mkdir(parents=True, exist_ok=True)
-            df.to_csv(md_output_dir / f'hits_and_misses_{idx}', index=False)
+            if output_path:
+                md_output_dir = Path(f'{output_path}/hits_and_misses')
+                md_output_dir.mkdir(parents=True, exist_ok=True)
+                df.to_csv(md_output_dir / f'hits_and_misses_{idx}.csv', index=False)
 
             print(f'Missed Annotations at {threshold} FPPs:', sum(df.miss))
             missed_metadata.append(df)
@@ -689,9 +693,9 @@ def copy_scan_from_cluster(scan_id):
 
 
 
-def display_plots_with_error_bars(model, flavour, actionable, protected_group, categories, sensitivity_data, output_path):
+def display_plots_with_error_bars(model, flavour, actionable, protected_group, categories, sensitivity_data, output_path=None):
 
-    output_path.mkdir(parents=True, exist_ok=True)
+
 
     cat_increments = {}
     increment = -0.1 * (len(categories) - 1) / 2
@@ -733,6 +737,10 @@ def display_plots_with_error_bars(model, flavour, actionable, protected_group, c
 
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(f'{output_path}/{model}_{flavour}_Actionable_{actionable}_{protected_group}.png')
+    if output_path:
+        output_path.mkdir(parents=True, exist_ok=True)
+        plt.savefig(f'{output_path}/{model}_{flavour}_Actionable_{actionable}_{protected_group}.png')
+    else:
+        plt.show()
 
 
