@@ -320,6 +320,9 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
         except KeyError:
             noduleAnnots = []
 
+        if seriesuid.find('2344') >= 0:
+            print("SeriesUID: %s, number of candidates: %d, number of nodule annotations: %d" % (seriesuid, len(candidates), len(noduleAnnots)))
+
         # - loop over the nodule annotations
         for noduleAnnot in noduleAnnots:
             # increment the number of nodules
