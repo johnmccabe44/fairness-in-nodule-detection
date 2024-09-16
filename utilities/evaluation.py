@@ -146,7 +146,7 @@ def compute_mean_ci(interp_sens, confidence = 0.95):
 
     return sens_mean,sens_lb,sens_up
 
-def computeFROC_bootstrap(FROCGTList,FROCProbList,FPDivisorList,FROCImList,excludeList,numberOfBootstrapSamples=1000, confidence = 0.95):
+def computeFROC_bootstrap(FROCGTList,FROCProbList,FPDivisorList,FROCImList,excludeList,outputDir, numberOfBootstrapSamples=1000, confidence = 0.95):
 
     set1 = np.concatenate(([FROCGTList], [FROCProbList], [excludeList]), axis=0)
     
@@ -187,7 +187,7 @@ def computeFROC_bootstrap(FROCGTList,FROCProbList,FPDivisorList,FROCImList,exclu
         interp_sens[i,:] = np.interp(all_fps, fps_lists[i], sens_lists[i])
     
 
-    np.save('/Users/john/Projects/SOTAEvaluationNoduleDetection/utilities/bootstraps/all_fps.npy', interp_sens)
+    np.save(Path(outputDir, 'bootstrap_sensitivites.npy'), interp_sens)
 
     # compute mean and CI
     sens_mean,sens_lb,sens_up = compute_mean_ci(interp_sens, confidence = confidence)
@@ -456,8 +456,14 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
     fps, sens, thresholds = computeFROC(FROCGTList,FROCProbList,len(seriesUIDs),excludeList, None)
     
     if performBootstrapping:
-        fps_bs_itp,sens_bs_mean,sens_bs_lb,sens_bs_up = computeFROC_bootstrap(FROCGTList,FROCProbList,FPDivisorList,seriesUIDs,excludeList,
-                                                                  numberOfBootstrapSamples=numberOfBootstrapSamples, confidence = confidence)
+        fps_bs_itp,sens_bs_mean,sens_bs_lb,sens_bs_up = computeFROC_bootstrap(FROCGTList,
+                                                            FROCProbList,
+                                                            FPDivisorList,
+                                                            seriesUIDs,
+                                                            excludeList,
+                                                            numberOfBootstrapSamples=numberOfBootstrapSamples,
+                                                            outputDir=outputDir,
+                                                            confidence=confidence)
         
     # Write FROC curve
     with open(os.path.join(outputDir, "froc_%s.txt" % CADSystemName), 'w') as f:
@@ -629,9 +635,8 @@ def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,serie
                 show_froc=show_froc)
     
 
-    Path(outputDir,'Bootstraps').mkdir(parents=True, exist_ok=True)
     try:
-        shutil.move('/Users/john/Projects/SOTAEvaluationNoduleDetection/utilities/bootstraps/all_fps.npy', Path(outputDir, 'all_fps.npy'))
+        shutil.move('/Users/john/Projects/SOTAEvaluationNoduleDetection/utilities/bootstraps/all_fps.npy', Path(outputDir, 'Bootstraps', 'all_fps.npy'))
 
         print(f'copying bootstraps to {outputDir} directory') 
     except:
