@@ -758,9 +758,9 @@ def display_plots_with_error_bars(model, flavour, actionable, protected_group, c
     group1_v_group2_t_stat, group1_v_group2_p_value = stats.ttest_ind(auc_group1_bootstraps, auc_group2_bootstraps)
 
     stats_title = f"Group1: {categories[0]} vs Group2: {categories[1]}\n"
-    stats_title += f"Overall AUC-like metric difference 95% Confidence Interval: {group1_v_group2_ci_low:.5f}, {group1_v_group2_ci_high:.5f}\n"
-    stats_title += f"Overall t-statistic: {group1_v_group2_t_stat:.5f}\n"
-    stats_title += f"Overall p-value: {group1_v_group2_p_value:.5f}\n"
+    stats_title += f"Overall AUC-like metric difference 95% Confidence Interval: {group1_v_group2_ci_low}, {group1_v_group2_ci_high}\n"
+    stats_title += f"Overall t-statistic: {group1_v_group2_t_stat}\n"
+    stats_title += f"Overall p-value: {group1_v_group2_p_value}\n"
     
 
 
@@ -770,18 +770,18 @@ def display_plots_with_error_bars(model, flavour, actionable, protected_group, c
         group1_v_group3_t_stat, group1_v_group3_p_value = stats.ttest_ind(auc_group1_bootstraps, auc_group3_bootstraps)
         stats_title += "*"*20
         stats_title += f"\nGroup1: {categories[0]} vs Group2: {categories[2]}\n"
-        stats_title += f"Overall AUC-like metric difference 95% Confidence Interval: {group1_v_group3_ci_low:.5f}, {group1_v_group3_ci_high:.5f}\n"
-        stats_title += f"Overall t-statistic: {group1_v_group3_t_stat:.5f}\n"
-        stats_title += f"Overall p-value: {group1_v_group3_p_value:.5f}\n"
+        stats_title += f"Overall AUC-like metric difference 95% Confidence Interval: {group1_v_group3_ci_low}, {group1_v_group3_ci_high}\n"
+        stats_title += f"Overall t-statistic: {group1_v_group3_t_stat}\n"
+        stats_title += f"Overall p-value: {group1_v_group3_p_value}\n"
 
         auc_diff_group2_v_group3 = auc_group2_bootstraps - auc_group3_bootstraps
         group2_v_group3_ci_low, group2_v_group3_ci_high = np.percentile(auc_diff_group2_v_group3, [2.5, 97.5])
         group2_v_group3_t_stat, group2_v_group3_p_value = stats.ttest_ind(auc_group2_bootstraps, auc_group3_bootstraps)
         stats_title += "*"*20
         stats_title += f"\nGroup1: {categories[0]} vs Group2: {categories[2]}\n"
-        stats_title += f"Overall AUC-like metric difference 95% Confidence Interval: {group2_v_group3_ci_low:.5f}, {group2_v_group3_ci_high:.5f}\n"
-        stats_title += f"Overall t-statistic: {group2_v_group3_t_stat:.5f}\n"
-        stats_title += f"Overall p-value: {group2_v_group3_p_value:.5f}\n"
+        stats_title += f"Overall AUC-like metric difference 95% Confidence Interval: {group2_v_group3_ci_low}, {group2_v_group3_ci_high}\n"
+        stats_title += f"Overall t-statistic: {group2_v_group3_t_stat}\n"
+        stats_title += f"Overall p-value: {group2_v_group3_p_value}\n"
 
     title_template = f'{model} {flavour} - {actionable} - {protected_group}'
     for cat in categories:
