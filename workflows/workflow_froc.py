@@ -132,14 +132,45 @@ class FROCFlow(FlowSpec):
                                         columns={'Y0_PARTICIPANT_DETAILS_main_participant_id': 'StudyId', 'participant_details_gender' : 'gender', 'lung_health_check_demographics_race_ethnicgroup' : 'ethnic_group'}).assign(
                                         Name=lambda x: x['StudyId'] + '_Y0_BASELINE_A')
 
-        # Reduce the annotations to only actionable cases
 
+        # Reduce the annotations to only actionable cases
         if self.actionable:
             self.annotations = annotations[annotations['management_plan'].isin(['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1'])]
             self.annotations_excluded = annotations[annotations['management_plan']=='RANDOMISATION_AT_YEAR_1']
         else:
             self.annotations = annotations
             self.annotations_excluded = annotations.drop(annotations.index)
+
+        self.scan_metadata = self.scan_metadata[~self.scan_metadata['Name'].isin([
+'summit-3634-kct_Y0_BASELINE_A',
+ 'summit-4963-nzy_Y0_BASELINE_A',
+ 'summit-5479-gsd_Y0_BASELINE_A',
+ 'summit-6244-vvj_Y0_BASELINE_A',
+ 'summit-7262-prw_Y0_BASELINE_A',
+ 'summit-7575-sum_Y0_BASELINE_A',
+ 'summit-7983-vqa_Y0_BASELINE_A',
+ 'summit-8465-pcy_Y0_BASELINE_A',
+ 'summit-9353-nrb_Y0_BASELINE_A',
+ 'summit-9399-jun_Y0_BASELINE_A'])
+        ]
+
+['summit-2464-rzu_Y0_BASELINE_A',
+ 'summit-3754-htf_Y0_BASELINE_A',
+ 'summit-3785-pcd_Y0_BASELINE_A',
+ 'summit-4259-qss_Y0_BASELINE_A',
+ 'summit-5465-vcd_Y0_BASELINE_A',
+ 'summit-6244-vvj_Y0_BASELINE_A',
+ 'summit-8384-bcw_Y0_BASELINE_A',
+ 'summit-8834-ghc_Y0_BASELINE_A',
+ 'summit-9488-uva_Y0_BASELINE_A',
+ 'summit-9579-pzn_Y0_BASELINE_A',
+ 'summit-9757-qrj_Y0_BASELINE_A']
+
+['summit-3888-ppu_Y0_BASELINE_A',
+ 'summit-4369-evk_Y0_BASELINE_A',
+ 'summit-5523-qwf_Y0_BASELINE_A',
+ 'summit-6386-pjp_Y0_BASELINE_A',
+ 'summit-6875-nym_Y0_BASELINE_A']
 
         # Define the subsequent slices to be performed
         gender_groups = [('gender','MALE'), ('gender', 'FEMALE')]
