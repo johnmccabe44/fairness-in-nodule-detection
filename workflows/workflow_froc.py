@@ -47,10 +47,11 @@ class FROCFlow(FlowSpec):
     Calculate the free response operating characteristic (FROC) scores for each demographic group
     """
 
-    model = Parameter('model', help='Model to evaluate', default='ticnet')
+    model = Parameter('model', help='Model to evaluate')
     flavour = Parameter('flavour', help='Flavour to evaluate', default='test_balanced')
-    actionable = Parameter('actionable', type=bool, help='Only include actionable cases', default=False)
+    actionable = Parameter('actionable', type=bool, help='Only include actionable cases')
     n_bootstraps = Parameter('bootstraps', help='Number of bootstraps to perform', default=1000)
+    exclude_outliers = Parameter('exclude_outliers', type=bool, help='Exclude outliers from the bootstrapping')
 
     if os.path.basename(os.getcwd()).upper() == 'SOTAEVALUATIONNODULEDETECTION':
         workspace_path = Path(os.getcwd()).as_posix()
@@ -62,7 +63,10 @@ class FROCFlow(FlowSpec):
     @step
     def start(self):
         
-        self.output_dir = f'results/summit/{self.model}/{self.flavour}/{"Actionable" if self.actionable else "All"}/FROC'
+
+        print(self.model, self.flavour, self.actionable, self.exclude_outliers)
+
+        self.output_dir = f'results/summit/{self.model}/{self.flavour}/{"Actionable" if self.actionable else "All"}/{"Excluded" if self.exclude_outliers else "Included"}/FROC'
 
         # Load the data
         if self.model == 'grt123':
@@ -94,7 +98,7 @@ class FROCFlow(FlowSpec):
         elif self.model == 'ticnet':
 
             _annotations = (
-                pd.read_csv(f'/Users/john/Projects/TiCNet-main/annotations/summit/{self.flavour}/test_metadata.csv').rename(columns={
+                pd.read_csv(f'{self.workspace_path}/../TiCNet-main/annotations/summit/{self.flavour}/test_metadata.csv').rename(columns={
                     'seriesuid' : 'name',
                     'coordX' : 'row',
                     'coordY' : 'col',
@@ -106,7 +110,7 @@ class FROCFlow(FlowSpec):
             )
 
             _metadata = (
-                pd.read_csv(f'/Users/john/Projects/SOTAEvaluationNoduleDetection/metadata/summit/{self.flavour}/test_metadata.csv')
+                pd.read_csv(f'{self.workspace_path}/metadata/summit/{self.flavour}/test_metadata.csv')
                 .assign(name=lambda df: df.participant_id + '_Y0_BASELINE_A')
                 .assign(name_counter=lambda df: df.groupby('name').cumcount() + 1)
             )
@@ -115,7 +119,7 @@ class FROCFlow(FlowSpec):
 
             assert annotations.shape[0] == _metadata.shape[0], 'Mismatch in number of annotations'
 
-            self.results = pd.read_csv(f'/Users/john/Projects/TiCNet-main/results/summit/{self.flavour}/res/110/FROC/submission_rpn.csv').rename(
+            self.results = pd.read_csv(f'{self.workspace_path}/../TiCNet-main/results/summit/{self.flavour}/res/110/FROC/submission_rpn.csv').rename(
                 columns={
                     'seriesuid' : 'name',
                     'coordX' : 'row',
@@ -132,6 +136,17 @@ class FROCFlow(FlowSpec):
                                         columns={'Y0_PARTICIPANT_DETAILS_main_participant_id': 'StudyId', 'participant_details_gender' : 'gender', 'lung_health_check_demographics_race_ethnicgroup' : 'ethnic_group'}).assign(
                                         Name=lambda x: x['StudyId'] + '_Y0_BASELINE_A')
 
+        # Remove the scans that are not in the metadata
+        if self.exclude_outliers:
+            self.scan_metadata = self.scan_metadata[~self.scan_metadata['Name'].isin([
+        'summit-2626-hgp_Y0_BASELINE_A', 'summit-3339-ktr_Y0_BASELINE_A',
+       'summit-3634-kct_Y0_BASELINE_A', 'summit-3679-cmk_Y0_BASELINE_A',
+       'summit-4242-bec_Y0_BASELINE_A', 'summit-4345-ctj_Y0_BASELINE_A',
+       'summit-6244-vvj_Y0_BASELINE_A', 'summit-7236-yph_Y0_BASELINE_A',
+       'summit-7328-thh_Y0_BASELINE_A', 'summit-7347-vgb_Y0_BASELINE_A',
+       'summit-7658-wmk_Y0_BASELINE_A', 'summit-8994-kpf_Y0_BASELINE_A',
+       'summit-9333-wbc_Y0_BASELINE_A'
+                ])]
 
         # Reduce the annotations to only actionable cases
         if self.actionable:
@@ -141,36 +156,6 @@ class FROCFlow(FlowSpec):
             self.annotations = annotations
             self.annotations_excluded = annotations.drop(annotations.index)
 
-        self.scan_metadata = self.scan_metadata[~self.scan_metadata['Name'].isin([
-'summit-3634-kct_Y0_BASELINE_A',
- 'summit-4963-nzy_Y0_BASELINE_A',
- 'summit-5479-gsd_Y0_BASELINE_A',
- 'summit-6244-vvj_Y0_BASELINE_A',
- 'summit-7262-prw_Y0_BASELINE_A',
- 'summit-7575-sum_Y0_BASELINE_A',
- 'summit-7983-vqa_Y0_BASELINE_A',
- 'summit-8465-pcy_Y0_BASELINE_A',
- 'summit-9353-nrb_Y0_BASELINE_A',
- 'summit-9399-jun_Y0_BASELINE_A'])
-        ]
-
-['summit-2464-rzu_Y0_BASELINE_A',
- 'summit-3754-htf_Y0_BASELINE_A',
- 'summit-3785-pcd_Y0_BASELINE_A',
- 'summit-4259-qss_Y0_BASELINE_A',
- 'summit-5465-vcd_Y0_BASELINE_A',
- 'summit-6244-vvj_Y0_BASELINE_A',
- 'summit-8384-bcw_Y0_BASELINE_A',
- 'summit-8834-ghc_Y0_BASELINE_A',
- 'summit-9488-uva_Y0_BASELINE_A',
- 'summit-9579-pzn_Y0_BASELINE_A',
- 'summit-9757-qrj_Y0_BASELINE_A']
-
-['summit-3888-ppu_Y0_BASELINE_A',
- 'summit-4369-evk_Y0_BASELINE_A',
- 'summit-5523-qwf_Y0_BASELINE_A',
- 'summit-6386-pjp_Y0_BASELINE_A',
- 'summit-6875-nym_Y0_BASELINE_A']
 
         # Define the subsequent slices to be performed
         gender_groups = [('gender','MALE'), ('gender', 'FEMALE')]
@@ -239,6 +224,8 @@ class FROCFlow(FlowSpec):
             })
         )
 
+        self.bootstap_results = np.load(output_path / 'bootstrap_sensitivites.npy')
+
         self.next(self.join)
 
     @step
@@ -253,6 +240,7 @@ class FROCFlow(FlowSpec):
         pd.DataFrame.from_dict(self.cpm_summary, orient='index').to_csv(f'{self.output_dir}/cpm_summary.csv')
 
         self.boot_metrics = {inp.val : inp.boot_metrics for inp in inputs}
+        self.bootstap_results = {inp.val : inp.bootstap_results for inp in inputs}
 
         self.next(self.charting)
 
@@ -264,6 +252,7 @@ class FROCFlow(FlowSpec):
         self.froc_metrics = self.froc_metrics
         self.cpm_data = self.cpm_data
         self.boot_metrics = self.boot_metrics
+        self.bootstap_results = self.bootstap_results
 
         # Define charts to be generated
         if self.flavour == 'test_balanced':            
@@ -298,6 +287,7 @@ class FROCFlow(FlowSpec):
             protected_group=demographic_group,
             categories=demographic_categories,
             sensitivity_data=self.cpm_data,
+            bootstrap_results=self.bootstap_results,
             output_path=Path(f'{self.output_dir}/images')
             )
 

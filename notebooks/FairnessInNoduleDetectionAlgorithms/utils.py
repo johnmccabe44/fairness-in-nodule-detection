@@ -14,9 +14,8 @@ from matplotlib.ticker import FixedFormatter
 import matplotlib.pyplot as plt
 import subprocess
 from pyparsing import col
+from scipy import stats
 from scipy.stats import f_oneway
-import statsmodels.api as sm
-from statsmodels.stats.multicomp import pairwise_tukeyhsd
 
 warnings.simplefilter('ignore')
 
@@ -693,9 +692,11 @@ def copy_scan_from_cluster(scan_id):
 
 
 
-def display_plots_with_error_bars(model, flavour, actionable, protected_group, categories, sensitivity_data, output_path=None):
+def display_plots_with_error_bars(model, flavour, actionable, protected_group, categories, sensitivity_data, bootstrap_results, output_path=None):
 
 
+
+    print(f'Categories: {len(categories)}')
 
     cat_increments = {}
     increment = -0.1 * (len(categories) - 1) / 2
@@ -707,6 +708,8 @@ def display_plots_with_error_bars(model, flavour, actionable, protected_group, c
     fppi_levels = [0.125, 0.25, 0.5, 1, 2, 4, 8]
 
     means = {}
+    low = {}
+    high = {}
     errors = {}
 
     for cat in categories:
@@ -714,10 +717,78 @@ def display_plots_with_error_bars(model, flavour, actionable, protected_group, c
         errors[cat] = np.array([
             (
                 sensitivity_data[cat].loc[fppi, 'mean_sens'] - sensitivity_data[cat].loc[fppi, 'low_sens'],
-                sensitivity_data[cat].loc[fppi, 'high_sens'] - sensitivity_data[cat].loc[fppi, 'mean_sens']
+                sensitivity_data[cat].loc[fppi, 'high_sens'] - sensitivity_data[cat].loc[fppi, 'mean_sens'],
+
             )
             for fppi in fppi_levels
         ]).T
+
+        low[cat] = np.array(sensitivity_data[cat]['low_sens'])
+        high[cat] = np.array(sensitivity_data[cat]['high_sens'])
+    
+
+    # Run comparitive stats test
+    all_operating_points = np.linspace(0.125, 8, num=10000) 
+
+    group1_bootstrap_results = bootstrap_results[categories[0]]
+    group2_bootstrap_results = bootstrap_results[categories[1]]
+    auc_group1_bootstraps = []
+    auc_group2_bootstraps = []
+
+    if len(categories) == 3:
+        group3_bootstrap_results = bootstrap_results[categories[2]]
+        auc_group3_bootstraps = []
+
+    for i in range(1000):
+
+        auc_group1_bootstraps.append(np.trapz(group1_bootstrap_results[i,:], x=all_operating_points))
+        auc_group2_bootstraps.append(np.trapz(group2_bootstrap_results[i,:], x=all_operating_points))
+
+        if len(categories) == 3:
+            auc_group3_bootstraps.append(np.trapz(group3_bootstrap_results[i,:], x=all_operating_points))
+
+    auc_group1_bootstraps = np.array(auc_group1_bootstraps)
+    auc_group2_bootstraps = np.array(auc_group2_bootstraps)
+    if len(categories) == 3:
+        auc_group3_bootstraps = np.array(auc_group3_bootstraps)
+
+
+    auc_diff_group1_v_group2 = auc_group1_bootstraps - auc_group2_bootstraps
+    group1_v_group2_ci_low, group1_v_group2_ci_high = np.percentile(auc_diff_group1_v_group2, [2.5, 97.5])
+    group1_v_group2_t_stat, group1_v_group2_p_value = stats.ttest_ind(auc_group1_bootstraps, auc_group2_bootstraps)
+
+    stats_title = f"Group1: {categories[0]} vs Group2: {categories[1]}\n"
+    stats_title += f"Overall AUC-like metric difference 95% Confidence Interval: {group1_v_group2_ci_low:.5f}, {group1_v_group2_ci_high:.5f}\n"
+    stats_title += f"Overall t-statistic: {group1_v_group2_t_stat:.5f}\n"
+    stats_title += f"Overall p-value: {group1_v_group2_p_value:.5f}\n"
+    
+
+
+    if len(categories) == 3:
+        auc_diff_group1_v_group3 = auc_group1_bootstraps - auc_group3_bootstraps
+        group1_v_group3_ci_low, group1_v_group3_ci_high = np.percentile(auc_diff_group1_v_group3, [2.5, 97.5])
+        group1_v_group3_t_stat, group1_v_group3_p_value = stats.ttest_ind(auc_group1_bootstraps, auc_group3_bootstraps)
+        stats_title += "*"*20
+        stats_title += f"\nGroup1: {categories[0]} vs Group2: {categories[2]}\n"
+        stats_title += f"Overall AUC-like metric difference 95% Confidence Interval: {group1_v_group3_ci_low:.5f}, {group1_v_group3_ci_high:.5f}\n"
+        stats_title += f"Overall t-statistic: {group1_v_group3_t_stat:.5f}\n"
+        stats_title += f"Overall p-value: {group1_v_group3_p_value:.5f}\n"
+
+        auc_diff_group2_v_group3 = auc_group2_bootstraps - auc_group3_bootstraps
+        group2_v_group3_ci_low, group2_v_group3_ci_high = np.percentile(auc_diff_group2_v_group3, [2.5, 97.5])
+        group2_v_group3_t_stat, group2_v_group3_p_value = stats.ttest_ind(auc_group2_bootstraps, auc_group3_bootstraps)
+        stats_title += "*"*20
+        stats_title += f"\nGroup1: {categories[0]} vs Group2: {categories[2]}\n"
+        stats_title += f"Overall AUC-like metric difference 95% Confidence Interval: {group2_v_group3_ci_low:.5f}, {group2_v_group3_ci_high:.5f}\n"
+        stats_title += f"Overall t-statistic: {group2_v_group3_t_stat:.5f}\n"
+        stats_title += f"Overall p-value: {group2_v_group3_p_value:.5f}\n"
+
+    title_template = f'{model} {flavour} - {actionable} - {protected_group}'
+    for cat in categories:
+        title_template += f'\n{cat}: {np.mean(means[cat]):.2f} (95% CI {np.mean(low[cat]):.2f}-{np.mean(high[cat]):.2f})'
+
+    title_template += f'\n{stats_title}'
+
 
     # Plotting side-by-side scatter plots with error bars
     plt.figure(figsize=(12, 6))
@@ -730,7 +801,7 @@ def display_plots_with_error_bars(model, flavour, actionable, protected_group, c
 
     plt.xlabel('False Positives Per Scan')
     plt.ylabel('Sensitivity')
-    # plt.title(f'Sensitivity Comparison Between {protected_group}')
+    plt.title(title_template)
     plt.xticks(index, fppi_levels)
     plt.legend()
     plt.ylim(0.0, 1.0)  # Adjust ylim based on your data range
