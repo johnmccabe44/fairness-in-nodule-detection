@@ -237,7 +237,9 @@ class FROCFlow(FlowSpec):
         self.cpm_data = {inp.val : inp.cpm_data for inp in inputs}
         self.cpm_summary = {inp.val : inp.cpm_summary for inp in inputs}
 
-        pd.DataFrame.from_dict(self.cpm_summary, orient='index').to_csv(f'{self.output_dir}/cpm_summary.csv')
+        pd.DataFrame.from_dict(self.cpm_summary, orient='index').reindex(
+            ['MALE','FEMALE','Asian or Asian British','Black','White','all']
+        ).to_csv(f'{self.output_dir}/cpm_summary.csv')
 
         self.boot_metrics = {inp.val : inp.boot_metrics for inp in inputs}
         self.bootstap_results = {inp.val : inp.bootstap_results for inp in inputs}

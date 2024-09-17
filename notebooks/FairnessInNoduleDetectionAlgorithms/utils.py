@@ -757,41 +757,37 @@ def display_plots_with_error_bars(model, flavour, actionable, protected_group, c
     group1_v_group2_ci_low, group1_v_group2_ci_high = np.percentile(auc_diff_group1_v_group2, [2.5, 97.5])
     group1_v_group2_t_stat, group1_v_group2_p_value = stats.ttest_ind(auc_group1_bootstraps, auc_group2_bootstraps)
 
-    stats_title = f"Group1: {categories[0]} vs Group2: {categories[1]}\n"
-    stats_title += f"Overall AUC-like metric difference 95% Confidence Interval: {group1_v_group2_ci_low}, {group1_v_group2_ci_high}\n"
-    stats_title += f"Overall t-statistic: {group1_v_group2_t_stat}\n"
-    stats_title += f"Overall p-value: {group1_v_group2_p_value}\n"
+    stats_title = "*"*20
+    stats_title += f"\nGroup1: {categories[0]} vs Group2: {categories[1]}\n"
+    stats_title += f"AUC-like difference 95% CI: {group1_v_group2_ci_low:.4f}, {group1_v_group2_ci_high:.4f}\n"
+    stats_title += f"Overall p-value: {group1_v_group2_p_value:.4f}\n"
     
-
-
     if len(categories) == 3:
         auc_diff_group1_v_group3 = auc_group1_bootstraps - auc_group3_bootstraps
         group1_v_group3_ci_low, group1_v_group3_ci_high = np.percentile(auc_diff_group1_v_group3, [2.5, 97.5])
         group1_v_group3_t_stat, group1_v_group3_p_value = stats.ttest_ind(auc_group1_bootstraps, auc_group3_bootstraps)
         stats_title += "*"*20
         stats_title += f"\nGroup1: {categories[0]} vs Group2: {categories[2]}\n"
-        stats_title += f"Overall AUC-like metric difference 95% Confidence Interval: {group1_v_group3_ci_low}, {group1_v_group3_ci_high}\n"
-        stats_title += f"Overall t-statistic: {group1_v_group3_t_stat}\n"
-        stats_title += f"Overall p-value: {group1_v_group3_p_value}\n"
+        stats_title += f"AUC-like difference 95% CI: {group1_v_group3_ci_low:.4f}, {group1_v_group3_ci_high:.4f}\n"
+        stats_title += f"Overall p-value: {group1_v_group3_p_value:.4f}\n"
 
         auc_diff_group2_v_group3 = auc_group2_bootstraps - auc_group3_bootstraps
         group2_v_group3_ci_low, group2_v_group3_ci_high = np.percentile(auc_diff_group2_v_group3, [2.5, 97.5])
         group2_v_group3_t_stat, group2_v_group3_p_value = stats.ttest_ind(auc_group2_bootstraps, auc_group3_bootstraps)
         stats_title += "*"*20
-        stats_title += f"\nGroup1: {categories[0]} vs Group2: {categories[2]}\n"
-        stats_title += f"Overall AUC-like metric difference 95% Confidence Interval: {group2_v_group3_ci_low}, {group2_v_group3_ci_high}\n"
-        stats_title += f"Overall t-statistic: {group2_v_group3_t_stat}\n"
-        stats_title += f"Overall p-value: {group2_v_group3_p_value}\n"
+        stats_title += f"\nGroup1: {categories[1]} vs Group2: {categories[2]}\n"
+        stats_title += f"AUC-like difference 95% CI: {group2_v_group3_ci_low:.4f}, {group2_v_group3_ci_high:.4f}\n"
+        stats_title += f"Overall p-value: {group2_v_group3_p_value:.4f}\n"
 
     title_template = f'{model} {flavour} - {actionable} - {protected_group}'
     for cat in categories:
-        title_template += f'\n{cat}: {np.mean(means[cat]):.2f} (95% CI {np.mean(low[cat]):.2f}-{np.mean(high[cat]):.2f})'
+        title_template += f'\n{cat}: {np.mean(means[cat]):.4f} (95% CI {np.mean(low[cat]):.4f}-{np.mean(high[cat]):.4f})'
 
     title_template += f'\n{stats_title}'
 
 
     # Plotting side-by-side scatter plots with error bars
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(12, 12))
 
     bar_width = 0.1
     index = np.arange(len(fppi_levels))
@@ -801,7 +797,7 @@ def display_plots_with_error_bars(model, flavour, actionable, protected_group, c
 
     plt.xlabel('False Positives Per Scan')
     plt.ylabel('Sensitivity')
-    plt.title(title_template)
+    plt.title(title_template, fontsize=24)
     plt.xticks(index, fppi_levels)
     plt.legend()
     plt.ylim(0.0, 1.0)  # Adjust ylim based on your data range
