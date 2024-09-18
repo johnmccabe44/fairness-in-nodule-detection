@@ -30,6 +30,20 @@ from evaluation import noduleCADEvaluation
 
 workspace_path = Path(os.getcwd()).parent.parent
 
+
+def calculate_cpm(file_path):
+    predictions = pd.read_csv(file_path, header=None, names=['fps', 'sensitivity', 'threshold'])
+    fps_itp = np.linspace(0.125, 8, num=10000)
+    sens_itp = np.interp(fps_itp, predictions['fps'], predictions['sensitivity'])
+
+    idxs = []
+    for fps_value in [0.125, 0.25, 0.5, 1, 2, 4, 8]:
+        idxs.append(np.abs(fps_itp - fps_value).argmin())
+        
+    return np.mean(sens_itp[idxs])
+    
+
+
 def caluclate_cpm_from_bootstrapping(file_path):
     metrics = pd.read_csv(file_path)
 

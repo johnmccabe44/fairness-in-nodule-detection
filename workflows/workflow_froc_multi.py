@@ -23,7 +23,12 @@ else:
     sys.path.append('../utilities')
     sys.path.append('../notebooks')
 
-from FairnessInNoduleDetectionAlgorithms.utils import caluclate_cpm_from_bootstrapping, display_plots_with_error_bars
+from FairnessInNoduleDetectionAlgorithms.utils import (
+    caluclate_cpm_from_bootstrapping,
+    display_plots_with_error_bars,
+    calculate_cpm
+)
+
 from summit_utils import *
 from evaluation import noduleCADEvaluation
 import sys
@@ -42,16 +47,36 @@ METADATA_COLUMNS = [
     'nodule_type'
 ]
 
-class FROCFlow(FlowSpec):
+
+def resample_to_balance_nodule_counts(scan_metadata, annotations, group, balance, number_samples):
+    nodule_counts = annotations.groupby('name').size().rename('nodule_counts')
+    scan_with_nodule_counts = scan_metadata.assign(nodule_count=lambda x: x['name'].map(nodule_counts)).fillna(0)
+
+
+    sample = []
+    if balance == 'balance_gender':
+        sample.append(scan_with_nodule_counts[scan_with_nodule_counts['gender']=='FEMALE'].sample(number_samples, random_state=group))
+        sample.append(scan_with_nodule_counts[scan_with_nodule_counts['gender']=='MALE'].sample(number_samples, random_state=group))
+
+    elif balance == 'balance_ethnic_group':
+        sample.append(scan_with_nodule_counts[scan_with_nodule_counts['ethnic_group']=='Asian or Asian British'].sample(number_samples, random_state=group))
+        sample.append(scan_with_nodule_counts[scan_with_nodule_counts['ethnic_group']=='Black'].sample(number_samples, random_state=group))
+        sample.append(scan_with_nodule_counts[scan_with_nodule_counts['ethnic_group']=='White'].sample(number_samples, random_state=group))
+
+    sample = pd.concat(sample).sample(frac=1, random_state=group)
+
+    return sample
+
+class FROCSamplingFlow(FlowSpec):
     """
     Calculate the free response operating characteristic (FROC) scores for each demographic group
     """
 
-    model = Parameter('model', help='Model to evaluate')
+    model = Parameter('model', help='Model to evaluate', default='grt123')
     flavour = Parameter('flavour', help='Flavour to evaluate', default='test_balanced')
-    actionable = Parameter('actionable', type=bool, help='Only include actionable cases')
+    actionable = Parameter('actionable', type=bool, help='Only include actionable cases', default=True)
     n_bootstraps = Parameter('bootstraps', help='Number of bootstraps to perform', default=1000)
-    exclude_outliers = Parameter('exclude_outliers', type=bool, help='Exclude outliers from the bootstrapping')
+    exclude_outliers = Parameter('exclude_outliers', type=bool, help='Exclude outliers from the bootstrapping', default=False)
 
     if os.path.basename(os.getcwd()).upper() == 'SOTAEVALUATIONNODULEDETECTION':
         workspace_path = Path(os.getcwd()).as_posix()
@@ -66,7 +91,7 @@ class FROCFlow(FlowSpec):
 
         print(self.model, self.flavour, self.actionable, self.exclude_outliers)
 
-        self.output_dir = f'results/summit/resample/{self.model}/{self.flavour}/{"Actionable" if self.actionable else "All"}/{"Excluded" if self.exclude_outliers else "Included"}/FROC'
+        self.output_dir = Path(f'results/summit/resample/{self.model}/{self.flavour}/{"Actionable" if self.actionable else "All"}/{"Excluded" if self.exclude_outliers else "Included"}/FROC')
 
         # Load the data
         if self.model == 'grt123':
@@ -132,9 +157,16 @@ class FROCFlow(FlowSpec):
 
 
         self.scan_metadata = pd.read_csv(f'{self.workspace_path}/metadata/summit/{self.flavour}/test_scans_metadata.csv',
-                                        usecols=['Y0_PARTICIPANT_DETAILS_main_participant_id', 'participant_details_gender','lung_health_check_demographics_race_ethnicgroup']).rename(
-                                        columns={'Y0_PARTICIPANT_DETAILS_main_participant_id': 'StudyId', 'participant_details_gender' : 'gender', 'lung_health_check_demographics_race_ethnicgroup' : 'ethnic_group'}).assign(
-                                        Name=lambda x: x['StudyId'] + '_Y0_BASELINE_A')
+                                        usecols=[
+                                            'Y0_PARTICIPANT_DETAILS_main_participant_id',
+                                            'participant_details_gender',
+                                            'lung_health_check_demographics_race_ethnicgroup'
+                                        ]).rename(
+                                        columns={
+                                            'Y0_PARTICIPANT_DETAILS_main_participant_id': 'StudyId',
+                                            'participant_details_gender' : 'gender',
+                                            'lung_health_check_demographics_race_ethnicgroup' : 'ethnic_group'
+                                        }).assign(name=lambda x: x['StudyId'] + '_Y0_BASELINE_A')
 
         # Reduce the annotations to only actionable cases
         if self.actionable:
@@ -145,8 +177,10 @@ class FROCFlow(FlowSpec):
             self.annotations_excluded = annotations.drop(annotations.index)
 
 
+        self.next(self.define_sampling)
+
     @step
-    def resample(self):
+    def define_sampling(self):
 
         self.output_dir = self.output_dir
         self.scan_metadata = self.scan_metadata
@@ -154,26 +188,35 @@ class FROCFlow(FlowSpec):
         self.annotations_excluded = self.annotations_excluded
         self.results = self.results
 
-        self.resample_groups = ['balance_gender', 'balance_ethnic_group']
-        self.next(self.calculate_frocs, foreach='resample_groups')
+        self.resample_groups = [
+            (i, 'balance_gender', 200) for i in range(20)
+        ] + [
+            (i, 'balance_ethnic_group', 150) for i in range(20)
+        ]
+        self.next(self.resample, foreach='resample_groups')
 
 
     @step
-    def calculate_frocs(self):
+    def resample(self):
 
-        self.output_dir = self.output_dir / self.input
+        
         self.scan_metadata = self.scan_metadata
         self.annotations = self.annotations
         self.annotations_excluded = self.annotations_excluded
         self.results = self.results
+        self.group, self.resample_group, self.number_scans = self.input
 
-        self.resample_group = input
+        self.output_dir = self.output_dir / str(self.group) / self.resample_group
 
-        if self.resample_group == 'balance_gender':
-            self.scan_metadata = resample_to_balance_nodule_counts(self.scan_metadata,'gender',250)
+        print(f'Resampling to {self.resample_group}')
 
-        elif self.resample_group == 'balance_ethnic_group':
-            self.scan_metadata = resample_to_balance_nodule_counts(self.scan_metadata,'ethnic_group',150)
+        self.scan_metadata = resample_to_balance_nodule_counts(
+            self.scan_metadata,
+            self.annotations,
+            self.group,
+            self.resample_group,
+            self.number_scans
+        )
 
         # Define the subsequent slices to be performed
         gender_groups = [('gender','MALE'), ('gender', 'FEMALE')]
@@ -183,65 +226,168 @@ class FROCFlow(FlowSpec):
 
     @step
     def calculate_froc(self):
+        self.output_dir = self.output_dir
+        self.scan_metadata = self.scan_metadata
+        self.annotations = self.annotations
+        self.annotations_excluded = self.annotations_excluded
+        self.results = self.results
+        self.group = self.group
+        self.resample_group = self.resample_group
+        self.number_scans = self.number_scans
+
+        self.category, self.value = self.input
+
+        if self.category == 'all':
+            scans = self.scan_metadata['name']
+        else:
+            scans = self.scan_metadata[self.scan_metadata[self.category] == self.value]['name']
+
+        annotations = self.annotations[self.annotations['name'].isin(scans.values)]
+        exclusions = self.annotations_excluded[self.annotations_excluded['name'].isin(scans.values)]
+        predictions = self.results[self.results['name'].isin(scans.values)]
+
+        with TemporaryDirectory() as temp_dir:
+            temp_dir = Path(temp_dir)
+            scans.to_csv(temp_dir / 'scans.csv', index=False)
+            annotations.to_csv(temp_dir / 'annotations.csv', index=False)
+            exclusions.to_csv(temp_dir / 'exclusions.csv', index=False)
+            predictions.to_csv(temp_dir / 'predictions.csv', index=False)
+            output_path = Path(f'{self.output_dir}/{self.value}')
+
+            self.froc_metrics = noduleCADEvaluation(
+                annotations_filename=temp_dir / 'annotations.csv',
+                annotations_excluded_filename=temp_dir / 'exclusions.csv', 
+                seriesuids_filename=temp_dir / 'scans.csv',
+                results_filename=temp_dir / 'predictions.csv',
+                filter=f'Model: {self.model}, \nDataset: {self.flavour}, \nDemographic: {self.category} - {self.value}, \nActionable Only: {self.actionable}',
+                perform_bootstrapping=False,
+                outputDir=output_path
+            )
+
+        self.cpm_summary = calculate_cpm(output_path / 'froc_predictions.txt')
+
+        nodule_counts = self.scan_metadata[['name']].merge(
+            annotations.groupby('name').size().rename('nodule_counts'),
+            left_on='name',
+            right_index=True,
+            how='left'
+        ).fillna(0).set_index('name')
+
+        nodule_type_counts = annotations.groupby(['name', 'nodule_type']).size().unstack().fillna(0)
 
 
-            self.output_dir = sample.output_dir
-            self.annotations = sample.annotations
-            self.annotations_excluded = sample.annotations_excluded
-            self.results = sample.results
-            self.resample_group = sample.resample_group
-            self.scan_metadata = sample.scan_metadata
+        nodule_data = self.scan_metadata.merge(
+            nodule_counts.merge(nodule_type_counts, how='left', left_index=True, right_index=True),
+            left_on='name',
+            right_index=True
+        )
 
-            cat, val = self.input
 
-            if cat == 'all':
-                scans = self.scan_metadata['Name']
-            else:
-                scans = self.scan_metadata[self.scan_metadata[cat] == val]['Name']
+        self.percentage_zero_nodules = (nodule_data['nodule_counts'] == 0).mean()
 
-            annotations = self.annotations[self.annotations['name'].isin(scans.values)]
-            exclusions = self.annotations_excluded[self.annotations_excluded['name'].isin(scans.values)]
-            predictions = self.results[self.results['name'].isin(scans.values)]
+        if 'SOLID' not in nodule_data.columns:
+            nodule_data['SOLID'] = 0
 
-            self.number_scans = scans.shape[0]
-            self.number_annotations = annotations.shape[0]
-            self.number_exclusions = exclusions.shape[0]
-            self.number_predictions = predictions.shape[0]
+        if 'NON_SOLID' not in nodule_data.columns:
+            nodule_data['NON_SOLID'] = 0
 
-            with TemporaryDirectory() as temp_dir:
-                temp_dir = Path(temp_dir)
-                scans.to_csv(temp_dir / 'scans.csv', index=False)
-                annotations.to_csv(temp_dir / 'annotations.csv', index=False)
-                exclusions.to_csv(temp_dir / 'exclusions.csv', index=False)
-                predictions.to_csv(temp_dir / 'predictions.csv', index=False)
-                output_path = Path(f'{self.output_dir}/{val}')
+        if 'PART_SOLID' not in nodule_data.columns:
+            nodule_data['PART_SOLID'] = 0
 
-                self.froc_metrics = noduleCADEvaluation(
-                    annotations_filename=temp_dir / 'annotations.csv',
-                    annotations_excluded_filename=temp_dir / 'exclusions.csv', 
-                    seriesuids_filename=temp_dir / 'scans.csv',
-                    results_filename=temp_dir / 'predictions.csv',
-                    filter=f'Model: {self.model}, \nDataset: {self.flavour}, \nDemographic: {cat} - {val}, \nActionable Only: {self.actionable}',
-                    outputDir=output_path
-                )
+        if 'CALCIFIED' not in nodule_data.columns:
+            nodule_data['CALCIFIED'] = 0
 
-            self.cat = cat
-            self.val = val
-            _, self.cpm_summary = caluclate_cpm_from_bootstrapping(output_path / 'froc_predictions_bootstrapping.csv')
+        self.percentage_solid_nodules = (nodule_data['SOLID'].sum() / nodule_data['nodule_counts'].sum())
+        self.percentage_subsolid_nodules = (nodule_data['NON_SOLID'].sum() / nodule_data['nodule_counts'].sum())
+        self.percentage_partsolid_nodules = (nodule_data['PART_SOLID'].sum() / nodule_data['nodule_counts'].sum())
+        self.percentage_calcified_nodules = (nodule_data['CALCIFIED'].sum() / nodule_data['nodule_counts'].sum())
 
         self.next(self.join_froc)
 
     @step
-    def join(self, inputs):
+    def join_froc(self, inputs):
 
-        self.cpm_summary = {inp.val : inp.cpm_summary for inp in inputs}
+        self.cpm_summary = {
+            ','.join([
+                str(inp.group),
+                inp.resample_group,
+                inp.category,
+                inp.value,
+            ]) : inp.cpm_summary
+            for inp in inputs
+        }
+
+        self.percentage_zero_nodules = {
+            ','.join([
+                str(inp.group),
+                inp.resample_group,
+                inp.category,
+                inp.value,
+            ]): inp.percentage_zero_nodules
+            for inp in inputs
+        }
+
+        self.percentage_solid_nodules = {
+            ','.join([
+                str(inp.group),
+                inp.resample_group,
+                inp.category,
+                inp.value,
+            ]): inp.percentage_solid_nodules
+            for inp in inputs
+        }
+
+        self.percentage_subsolid_nodules = {
+            ','.join([
+                str(inp.group),
+                inp.resample_group,
+                inp.category,
+                inp.value,
+            ]): inp.percentage_subsolid_nodules
+            for inp in inputs
+        }
+
+        self.percentage_partsolid_nodules = {
+            ','.join([
+                str(inp.group),
+                inp.resample_group,
+                inp.category,
+                inp.value,
+            ]): inp.percentage_partsolid_nodules
+            for inp in inputs
+        }
+
+        self.percentage_calcified_nodules = {
+            ','.join([
+                str(inp.group),
+                inp.resample_group,
+                inp.category,
+                inp.value,
+            ]): inp.percentage_calcified_nodules
+            for inp in inputs
+        }
+
         self.next(self.join_sample)
 
     @step
     def join_sample(self, inputs):
 
-        self.
-        
+        self.cpm_summary = {}
+        self.percentage_zero_nodules = {}
+        self.percentage_solid_nodules = {}
+        self.percentage_subsolid_nodules = {}
+        self.percentage_partsolid_nodules = {}
+        self.percentage_calcified_nodules = {}
+
+        for inp in inputs:
+            self.cpm_summary.update(inp.cpm_summary)
+            self.percentage_zero_nodules.update(inp.percentage_zero_nodules)
+            self.percentage_solid_nodules.update(inp.percentage_solid_nodules)
+            self.percentage_subsolid_nodules.update(inp.percentage_subsolid_nodules)
+            self.percentage_partsolid_nodules.update(inp.percentage_partsolid_nodules)
+            self.percentage_calcified_nodules.update(inp.percentage_calcified_nodules)
+
+        self.next(self.end)
 
     @step
     def end(self):
@@ -249,4 +395,4 @@ class FROCFlow(FlowSpec):
 
 
 if __name__ == '__main__':
-    FROCFlow()
+    FROCSamplingFlow()

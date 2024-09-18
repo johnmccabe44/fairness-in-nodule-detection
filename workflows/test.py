@@ -1,3 +1,4 @@
+import random
 from metaflow import FlowSpec, step, IncludeFile, Parameter
 
 
@@ -8,19 +9,19 @@ class TestFlow(FlowSpec):
     @step
     def start(self):
         print('start')
-        self.next(self.resample)
+        self.next(self.define_sample)
+
+    @step
+    def define_sample(self):
+
+        self.samples = [1, 2, 3]
+        self.next(self.resample, foreach='samples')
 
     @step
     def resample(self):
-
-        self.samples = [1, 2, 3]
-        self.next(self.calc_frocs, foreach='samples')
-
-    @step
-    def calc_frocs(self):
         print("Calculating frocs for sample %d" % self.input)
         self.sample = self.input
-        self.frocs = [1, 2, 3]
+        self.frocs = ['a', 'b', 'c']
         self.next(self.calc_froc, foreach='frocs')
 
     @step
@@ -28,19 +29,22 @@ class TestFlow(FlowSpec):
         self.froc = self.input
         self.sample = self.sample
 
-        self.froc_score = self.froc * self.sample
-        self.next(self.join)
+        self.froc_score = random.random()
+        self.next(self.join_froc)
 
 
     @step
-    def join(self, inputs):
+    def join_froc(self, inputs):
         
-        self.froc_scores = [inp.froc_score for inp in inputs]
+        self.froc_scores = {str(inp.sample) + inp.froc : inp.froc_score for inp in inputs}
         self.next(self.join_samples)
 
     @step
     def join_samples(self, inputs):
-        print("Joining samples", [inp.froc_scores for inp in inputs])
+        froc_scores = {}
+        for inp in inputs:
+            froc_scores.update(inp.froc_scores)
+        print("Joining samples", froc_scores)
         self.next(self.end)
         
     @step
