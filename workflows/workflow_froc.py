@@ -51,7 +51,6 @@ class FROCFlow(FlowSpec):
     flavour = Parameter('flavour', help='Flavour to evaluate', default='test_balanced')
     actionable = Parameter('actionable', type=bool, help='Only include actionable cases')
     n_bootstraps = Parameter('bootstraps', help='Number of bootstraps to perform', default=1000)
-    exclude_outliers = Parameter('exclude_outliers', type=bool, help='Exclude outliers from the bootstrapping')
 
     if os.path.basename(os.getcwd()).upper() == 'SOTAEVALUATIONNODULEDETECTION':
         workspace_path = Path(os.getcwd()).as_posix()
@@ -136,17 +135,6 @@ class FROCFlow(FlowSpec):
                                         columns={'Y0_PARTICIPANT_DETAILS_main_participant_id': 'StudyId', 'participant_details_gender' : 'gender', 'lung_health_check_demographics_race_ethnicgroup' : 'ethnic_group'}).assign(
                                         Name=lambda x: x['StudyId'] + '_Y0_BASELINE_A')
 
-        # Remove the scans that are not in the metadata
-        if self.exclude_outliers:
-            self.scan_metadata = self.scan_metadata[~self.scan_metadata['Name'].isin([
-        'summit-2626-hgp_Y0_BASELINE_A', 'summit-3339-ktr_Y0_BASELINE_A',
-       'summit-3634-kct_Y0_BASELINE_A', 'summit-3679-cmk_Y0_BASELINE_A',
-       'summit-4242-bec_Y0_BASELINE_A', 'summit-4345-ctj_Y0_BASELINE_A',
-       'summit-6244-vvj_Y0_BASELINE_A', 'summit-7236-yph_Y0_BASELINE_A',
-       'summit-7328-thh_Y0_BASELINE_A', 'summit-7347-vgb_Y0_BASELINE_A',
-       'summit-7658-wmk_Y0_BASELINE_A', 'summit-8994-kpf_Y0_BASELINE_A',
-       'summit-9333-wbc_Y0_BASELINE_A'
-                ])]
 
         # Reduce the annotations to only actionable cases
         if self.actionable:
