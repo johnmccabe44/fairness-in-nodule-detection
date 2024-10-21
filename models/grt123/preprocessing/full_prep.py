@@ -313,7 +313,7 @@ def full_prep(data_path,prep_folder,n_worker = None, use_existing=True, metadata
     return filelist
 
 
-def full_prep_summit(data_path, prep_folder, scanlist_path, n_worker = None, use_existing=True, metadata_path=None):
+def full_prep_summit(data_path, prep_folder, scanlist_path, batch_number=None, batch_size=None, n_worker = None, use_existing=True, metadata_path=None):
     
     warnings.filterwarnings("ignore")
 
@@ -323,6 +323,9 @@ def full_prep_summit(data_path, prep_folder, scanlist_path, n_worker = None, use
     print('starting preprocessing')
     
     scan_ids = pandas.read_csv(scanlist_path)['scan_id'].tolist()
+
+    if batch_number is not None and batch_size is not None:
+        scan_ids = scan_ids[batch_number*batch_size:(batch_number+1)*batch_size]
 
     scan_paths = [
         scan_path

@@ -441,6 +441,13 @@ if __name__=='__main__':
     dataset         = sys.argv[1]
     scanlist_path   = sys.argv[2]
     metadata_path   = sys.argv[3]
+    
+    if len(sys.argv) < 5:
+        batch_number = None
+        batch_size = None
+    else:
+        batch_number    = sys.argv[4]
+        batch_size      = sys.argv[5]
 
     if dataset == 'luna':
 
@@ -460,6 +467,8 @@ if __name__=='__main__':
             data_path=datapath,
             prep_folder=prep_result_path,
             scanlist_path=scanlist_path,
+            batch_number=batch_number,
+            batch_size=batch_size,
             n_worker=n_worker_preprocessing,
             use_existing=use_existing,
             metadata_path=metadata_path
