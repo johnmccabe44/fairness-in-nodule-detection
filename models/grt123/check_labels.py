@@ -2,11 +2,12 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import sys
+from tqdm import tqdm
 
 def main(data_dir):
 
     combined_results = {}
-    for label_path in Path(data_dir).rglob('*_label.npy'):
+    for label_path in tqdm(Path(data_dir).rglob('*_label.npy')):
         label = np.load(label_path)
         if label.shape[0] != 1:
             for i, l in enumerate(label):
