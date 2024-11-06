@@ -57,7 +57,7 @@ net_config = {
     'th_pos_val': 1,
     'num_hard': 3,
     'bound_size': 12,
-    'blacklist': [],
+    'blacklist': ['scan_id'],
     'num_class': 2,
     'hidden_dim': 128,
     'aux_loss': False,
