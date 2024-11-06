@@ -92,8 +92,6 @@ def main():
         base_dir=args.data_base_dir,
     )
 
-    print(inference_data, flush=True)
-
     inference_ds = Dataset(
         data=inference_data,
         transform=inference_transforms,
