@@ -109,11 +109,18 @@ def generate_label(annos_dict, scan_ids, img_dir):
 
 def annotation_to_npy(annotations_file, scan_ids, preprocessed_dir, output_path, mappings):
 
+
+    transformed_annotations_file = output_path / annotations_file.name
+
+    if Path(transformed_annotations_file).exists():
+        print(f'File {transformed_annotations_file} already exists. Skipping conversion')
+        return
+
     annos_dict = get_anno_dict(annotations_file, mappings)
 
     generate_label(annos_dict, scan_ids, preprocessed_dir)
 
-    transformed_annotations_file = output_path / annotations_file.name
+    
 
     try:
         with open(transformed_annotations_file, 'w') as csvfile:
@@ -153,6 +160,10 @@ def annotation_exclude_to_npy(annotations_excluded_dir, preprocessed_dir, output
     try:
 
         transformed_annotations_exclude_file = output_path / annotations_excluded_dir.name
+
+        if Path(transformed_annotations_exclude_file).exists():
+            print(f'File {transformed_annotations_exclude_file} already exists. Skipping conversion')
+            return
 
         with open(transformed_annotations_exclude_file, 'w') as csvfile:
             writer = csv.writer(csvfile)
