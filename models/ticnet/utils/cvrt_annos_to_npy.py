@@ -191,11 +191,11 @@ if __name__ == '__main__':
 
     args = parse_args()
 
-    annotations_path = (args.transformed_annotations_dir / args.flavour / args.dataset)
+    annotations_path = (args.transformed_annotations_dir / args.flavour)
     annotations_path.mkdir(parents=True, exist_ok=True)
 
     scan_ids = pd.read_csv(args.scan_id_file).iloc[:,0].tolist()
-    with open(annotations_path, 'w') as file:
+    with open(annotations_path / f'{args.dataset}_scans.txt' , 'w') as file:
         for scan_id in scan_ids:
             file.write(str(scan_id) + '\n')
 
