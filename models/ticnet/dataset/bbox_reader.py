@@ -7,7 +7,7 @@ import warnings
 from scipy.ndimage.interpolation import rotate
 import math
 import time
-import nrrd
+#import nrrd
 
 
 class BboxReader(Dataset):
@@ -20,14 +20,15 @@ class BboxReader(Dataset):
         self.data_dir = data_dir
         self.stride = cfg['stride']
         self.blacklist = cfg['blacklist']
+        self.blacklist = []
         self.set_name = set_name
 
         labels = []
         if set_name.endswith('.csv'):
             self.filenames = np.genfromtxt(set_name, dtype=str)
-
         elif set_name.endswith('.npy'):
             self.filenames = np.load(set_name)
+
 
         if mode != 'test':
             self.filenames = [f for f in self.filenames if (f not in self.blacklist)]
@@ -67,6 +68,7 @@ class BboxReader(Dataset):
             if not is_random_img:
                 bbox = self.bboxes[idx]
                 filename = self.filenames[int(bbox[0])]
+                    
                 imgs = self.load_img(filename)
                 bboxes = self.sample_bboxes[int(bbox[0])]
 
@@ -75,6 +77,11 @@ class BboxReader(Dataset):
                 if self.mode == 'train' and not is_random_crop:
                     sample, target, bboxes = augment(sample, target, bboxes, do_flip=self.augtype['flip'],
                                                      do_rotate=self.augtype['rotate'], do_swap=self.augtype['swap'])
+                    
+
+                    if sample.shape != (1, 128, 128, 128):
+                        print(filename, sample.shape)
+
             else:
                 randimid = np.random.randint(len(self.filenames))
                 filename = self.filenames[randimid]
@@ -82,6 +89,9 @@ class BboxReader(Dataset):
                 bboxes = self.sample_bboxes[randimid]
                 isScale = self.augtype['scale'] and (self.mode == 'train')
                 sample, target, bboxes, coord = self.crop(imgs, [], bboxes, isScale=False, isRand=True)
+
+                if sample.shape != (1, 128, 128, 128):
+                    print(filename, sample.shape)
 
             if sample.shape[1] != self.cfg['crop_size'][0] or sample.shape[2] != \
                     self.cfg['crop_size'][1] or sample.shape[3] != self.cfg['crop_size'][2]:
@@ -119,12 +129,12 @@ class BboxReader(Dataset):
             return len(self.filenames)
 
     def load_img(self, path_to_img):
-        img, _ = nrrd.read(os.path.join(self.data_dir, '%s_seg.nrrd' % (path_to_img)))
+        img = np.load(os.path.join(self.data_dir, '%s.npy' % (path_to_img)))
         img = img[np.newaxis, ...]
         return img
 
     def load_seg_img(self, path_to_img):
-        img, _ = nrrd.read(os.path.join(self.data_dir, '%s_seg.nrrd' % (path_to_img)))
+        img = np.load(os.path.join(self.data_dir, '%s.npy' % (path_to_img)))
         img = img[np.newaxis, ...]
         return img
 
@@ -201,6 +211,10 @@ class Crop(object):
         if isScale:
             radiusLim = [8., 120.]
             scaleLim = [0.75, 1.25]
+
+            if target[3] == 0:
+                target[3] = 5
+
             scaleRange = [np.min([np.max([(radiusLim[0] / target[3]), scaleLim[0]]), 1])
                 , np.max([np.min([(radiusLim[1] / target[3]), scaleLim[1]]), 1])]
             scale = np.random.rand() * (scaleRange[1] - scaleRange[0]) + scaleRange[0]
