@@ -34,28 +34,27 @@ def main(datadir, metadata_dir):
 
     print('Loading validation data', flush=True)
 
-    val_dataset = data.DataBowl3Detector(
-        datadir,
-        load_scan_list(Path(metadata_dir, 'validation_scans.csv')),
-        config,
-        phase = 'val')
+    # val_dataset = data.DataBowl3Detector(
+    #     datadir,
+    #     load_scan_list(Path(metadata_dir, 'validation_scans.csv')),
+    #     config,
+    #     phase = 'val')
     
     print('Training data size:', trn_dataset.__len__(), flush=True)
-    print('Validation data size:', val_dataset.__len__(), flush=True)
+    # print('Validation data size:', val_dataset.__len__(), flush=True)
 
     print('Starting training', flush=True)
     
-    for epoch in tqdm(range(100)):
-        for idx in range(trn_dataset.__len__()):
-            trn_dataset.__getitem__(idx)
+    for idx in range(trn_dataset.__len__()):
+        trn_dataset.__getitem__(idx)
 
-    print('Starting validation', flush=True)
-    for idx in tqdm(range(val_dataset.__len__())):
-        val_dataset.__getitem__(idx)
+    # print('Starting validation', flush=True)
+    # for idx in tqdm(range(val_dataset.__len__())):
+    #     val_dataset.__getitem__(idx)
 
 if __name__ == '__main__':
-    data_dir = sys.argv[1]
-    metadata_dir = sys.argv[2]
+    data_dir = '/Users/john/Projects/SOTAEvaluationNoduleDetection/models/grt123/prep_result/summit'
+    metadata_dir = '/Users/john/Projects/SOTAEvaluationNoduleDetection/models/grt123/prep_result/summit/test_metadata'
 
 
     print('Data dir:', data_dir, flush=True)
