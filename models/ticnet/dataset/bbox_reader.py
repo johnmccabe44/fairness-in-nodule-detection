@@ -20,12 +20,12 @@ class BboxReader(Dataset):
         self.data_dir = data_dir
         self.stride = cfg['stride']
         self.blacklist = cfg['blacklist']
-        self.blacklist = []
         self.set_name = set_name
 
         labels = []
         if set_name.endswith('.csv'):
             self.filenames = np.genfromtxt(set_name, dtype=str)
+
         elif set_name.endswith('.npy'):
             self.filenames = np.load(set_name)
 
