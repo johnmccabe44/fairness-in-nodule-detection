@@ -14,6 +14,18 @@ from tqdm import tqdm
 def parse_args():
 
     parser = argparse.ArgumentParser(description='Convert annotations to numpy array')
+
+    parser.add_argument(
+        '--flavour',
+        type=str, 
+        help='Flavour'
+    )
+
+    parser.add_argument(
+        '--dataset',
+        type=str, 
+        help='Dataset'
+    )
     
     parser.add_argument(
         '--annotations-file',
@@ -182,7 +194,7 @@ if __name__ == '__main__':
     args.transformed_annotations_dir.mkdir(parents=True, exist_ok=True)
 
     scan_ids = pd.read_csv(args.scan_id_file).iloc[:,0].tolist()
-    with open(args.transform_annotations_dir / 'scan_ids.txt', 'w') as file:
+    with open(args.transformed_annotations_dir / '', 'w') as file:
         for scan_id in scan_ids:
             file.write(str(scan_id) + '\n')
 
