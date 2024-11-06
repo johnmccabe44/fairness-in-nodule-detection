@@ -95,10 +95,16 @@ class DataBowl3Detector(Dataset):
                 bboxes = self.sample_bboxes[int(bbox[0])]
                 isScale = self.augtype['scale'] and (self.phase=='train')
                 sample, target, bboxes, coord = self.crop(imgs, bbox[1:], bboxes, isScale, isRandom)
+                
                 # print(f'-{filename},{sample.shape},{target.shape}, {bboxes}', flush=True)
+                
                 if self.phase=='train' and not isRandom:
+                     
                      sample, target, bboxes, coord = augment(sample, target, bboxes, coord,
                         ifflip = self.augtype['flip'], ifrotate=self.augtype['rotate'], ifswap = self.augtype['swap'])
+                     
+                    #  print(f'--{filename},{sample.shape},{target.shape}, {bboxes}', flush=True)
+
             else:
                 randimid = np.random.randint(len(self.summitnames))
                 filename = self.summitnames[randimid]
@@ -212,7 +218,7 @@ class Crop(object):
                 e = np.ceil (target[i] + r)+ 1 + bound_size - crop_size[i] 
             else:
                 s = np.max([imgs.shape[i+1]-crop_size[i]/2,imgs.shape[i+1]/2+bound_size])
-                e = np.min([crop_size[i]/2,              imgs.shape[i+1]/2-bound_size])
+                e = np.min([crop_size[i]/2, imgs.shape[i+1]/2-bound_size])
                 target = np.array([np.nan,np.nan,np.nan,np.nan])
             if s>e:
                 start.append(np.random.randint(e,s))#!
@@ -241,6 +247,9 @@ class Crop(object):
             max(start[0],0):min(start[0] + crop_size[0],imgs.shape[1]),
             max(start[1],0):min(start[1] + crop_size[1],imgs.shape[2]),
             max(start[2],0):min(start[2] + crop_size[2],imgs.shape[3])]
+        
+        # print('crop size:', crop_size, 'shape:', crop.shape, 'pad:', pad, flush=True)
+
         crop = np.pad(crop,pad,'constant',constant_values =self.pad_value)
         for i in range(3):
             target[i] = target[i] - start[i] 
@@ -253,6 +262,9 @@ class Crop(object):
                 warnings.simplefilter("ignore")
                 crop = zoom(crop,[1,scale,scale,scale],order=1)
             newpad = self.crop_size[0]-crop.shape[1:][0]
+
+            # print(f'newpad: {newpad}', flush=True)
+
             if newpad<0:
                 crop = crop[:,:-newpad,:-newpad,:-newpad]
             elif newpad>0:
@@ -263,6 +275,8 @@ class Crop(object):
             for i in range(len(bboxes)):
                 for j in range(4):
                     bboxes[i][j] = bboxes[i][j]*scale
+
+        # print(f'crop size: {crop.shape}', flush=True)
         return crop, target, bboxes, coord
     
 class LabelMapping(object):
