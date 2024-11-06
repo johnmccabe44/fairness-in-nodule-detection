@@ -191,10 +191,11 @@ if __name__ == '__main__':
 
     args = parse_args()
 
-    args.transformed_annotations_dir.mkdir(parents=True, exist_ok=True)
+    annotations_path = (args.transformed_annotations_dir / args.flavour / args.dataset)
+    annotations_path.mkdir(parents=True, exist_ok=True)
 
     scan_ids = pd.read_csv(args.scan_id_file).iloc[:,0].tolist()
-    with open(args.transformed_annotations_dir / '', 'w') as file:
+    with open(annotations_path, 'w') as file:
         for scan_id in scan_ids:
             file.write(str(scan_id) + '\n')
 
@@ -207,7 +208,7 @@ if __name__ == '__main__':
         args.annotations_file,
         scan_ids,
         args.preprocessed_dir,
-        args.transformed_annotations_dir,
+        annotations_path,
         mappings
     )
 
@@ -216,7 +217,7 @@ if __name__ == '__main__':
             args.annotations_excluded_file,
             scan_ids,
             args.preprocessed_dir,
-            args.transformed_annotations_dir,
+            annotations_path,
             mappings
         )
     
