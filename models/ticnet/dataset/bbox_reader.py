@@ -72,7 +72,7 @@ class BboxReader(Dataset):
                 bboxes = self.sample_bboxes[int(bbox[0])]
 
                 isScale = self.augtype['scale'] and (self.mode == 'train')
-                sample, target, bboxes, coord = self.crop(imgs, bbox[1:], bboxes, isScale, is_random_crop)
+                sample, target, bboxes, coord = self.crop(imgs, bbox[1:], bboxes, isScale, is_random_crop, filename=filename)
                 if self.mode == 'train' and not is_random_crop:
                     sample, target, bboxes = augment(sample, target, bboxes, do_flip=self.augtype['flip'],
                                                      do_rotate=self.augtype['rotate'], do_swap=self.augtype['swap'])
@@ -87,7 +87,7 @@ class BboxReader(Dataset):
                 imgs = self.load_img(filename)
                 bboxes = self.sample_bboxes[randimid]
                 isScale = self.augtype['scale'] and (self.mode == 'train')
-                sample, target, bboxes, coord = self.crop(imgs, [], bboxes, isScale=False, isRand=True)
+                sample, target, bboxes, coord = self.crop(imgs, [], bboxes, isScale=False, isRand=True, filename=filename)
 
                 if sample.shape != (1, 128, 128, 128):
                     print(filename, sample.shape)
@@ -206,7 +206,7 @@ class Crop(object):
         self.stride = config['stride']
         self.pad_value = config['pad_value']
 
-    def __call__(self, imgs, target, bboxes, isScale=False, isRand=False):
+    def __call__(self, imgs, target, bboxes, isScale=False, isRand=False, filename=None):
         if isScale:
             radiusLim = [8., 120.]
             scaleLim = [0.75, 1.25]
@@ -257,7 +257,18 @@ class Crop(object):
                int(max(start[0], 0)):int(min(start[0] + crop_size[0], imgs.shape[1])),
                int(max(start[1], 0)):int(min(start[1] + crop_size[1], imgs.shape[2])),
                int(max(start[2], 0)):int(min(start[2] + crop_size[2], imgs.shape[3]))]
-        crop = np.pad(crop, pad, 'constant', constant_values=self.pad_value)
+        
+        try:
+            crop = np.pad(crop, pad, 'constant', constant_values=self.pad_value)
+        except Exception as e:
+            print(filename)
+            print(crop.shape)
+            print(pad)
+            print(crop_size)
+            print(start)
+            print(imgs.shape)
+            raise e
+        
         for i in range(3):
             target[i] = target[i] - start[i]
         for i in range(len(bboxes)):
