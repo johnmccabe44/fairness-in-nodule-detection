@@ -21,13 +21,14 @@ def main(prepresult_dir):
             for i, l in enumerate(label):
 
                 key = f'{name}_{i}'
-                bboxes[key] = {
-                    'scan_id': name,
-                    'index': i,
-                    'row': l[0],
-                    'col': l[1],
-                    'diameter': l[2]
-                }
+                if i:
+                    bboxes[key] = {
+                        'scan_id': name,
+                        'index': i,
+                        'row': l[0],
+                        'col': l[1],
+                        'diameter': l[2]
+                    }
 
     bboxes = pd.DataFrame.from_dict(bboxes, orient='index')
     bboxes.to_csv(Path(prepresult_dir, 'bboxes.csv'), index=False)
