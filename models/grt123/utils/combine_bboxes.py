@@ -17,27 +17,29 @@ def main(prepresult_dir):
 
             labels = np.load(label_path)
 
-            for label in labels:
+            for i, label in enumerate(labels):
+                
+                if len(label) == 0:
+                    continue
 
-                for i, l in enumerate(label):
+                key = f'{name}_{i}'
 
-                    key = f'{name}_{i}'
-                    if i:
-                        bboxes[key] = {
-                            'scan_id': name,
-                            'index': i,
-                            'row': l[0],
-                            'col': l[1],
-                            'diameter': l[2]
-                        }
+                bboxes[key] = {
+                    'scan_id': name,
+                    '0': label[0],
+                    '1': label[1],
+                    '2': label[2],
+                    '3': label[3]
+                }
 
         bboxes = pd.DataFrame.from_dict(bboxes, orient='index')
         bboxes.to_csv(Path(prepresult_dir, 'bboxes.csv'), index=False)
+        
     except Exception as e:
         print(e)
         print(label_path)
         print(label)
-        
+
 if __name__ == "__main__":
     data_dir = sys.argv[1]
 
