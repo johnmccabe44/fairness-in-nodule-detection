@@ -10,29 +10,34 @@ def main(prepresult_dir):
 
     bboxes = {}
 
-    for label_path in tqdm(list_label_paths):
+    try:
+        for label_path in tqdm(list_label_paths):
 
-        name = label_path.stem.replace('_label', '')
+            name = label_path.stem.replace('_label', '')
 
-        labels = np.load(label_path)
+            labels = np.load(label_path)
 
-        for label in labels:
+            for label in labels:
 
-            for i, l in enumerate(label):
+                for i, l in enumerate(label):
 
-                key = f'{name}_{i}'
-                if i:
-                    bboxes[key] = {
-                        'scan_id': name,
-                        'index': i,
-                        'row': l[0],
-                        'col': l[1],
-                        'diameter': l[2]
-                    }
+                    key = f'{name}_{i}'
+                    if i:
+                        bboxes[key] = {
+                            'scan_id': name,
+                            'index': i,
+                            'row': l[0],
+                            'col': l[1],
+                            'diameter': l[2]
+                        }
 
-    bboxes = pd.DataFrame.from_dict(bboxes, orient='index')
-    bboxes.to_csv(Path(prepresult_dir, 'bboxes.csv'), index=False)
-
+        bboxes = pd.DataFrame.from_dict(bboxes, orient='index')
+        bboxes.to_csv(Path(prepresult_dir, 'bboxes.csv'), index=False)
+    except Exception as e:
+        print(e)
+        print(label_path)
+        print(label)
+        
 if __name__ == "__main__":
     data_dir = sys.argv[1]
 
