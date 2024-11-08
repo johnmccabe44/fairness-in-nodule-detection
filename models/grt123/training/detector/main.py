@@ -1,4 +1,5 @@
 import argparse
+from datetime import datetime
 import json
 import os
 import time
@@ -170,11 +171,8 @@ def main():
         cudnn.benchmark = True
         net = DataParallel(net)
 
-
     datadir = Path(args.data_dir)
 
-    print(f"Data dir:{datadir}, file cnt: {len([fil for fil in os.listdir(datadir) if fil.find('clean')>-1])}", flush=True)
-    
     if args.test == 1:
         margin = 32
         sidelen = 144
@@ -250,7 +248,7 @@ def main():
     
     for epoch in range(start_epoch, args.epochs + 1):
 
-        print(f'Training epoch {epoch}', flush=True)
+        print(f'Date: {datetime.now()}, Training epoch {epoch}', flush=True)
         train(train_loader, net, loss, epoch, optimizer, get_lr, args.save_freq, save_dir, device)
 
         if epoch % args.save_freq == 0:
@@ -268,6 +266,7 @@ def train(data_loader, net, loss, epoch, optimizer, get_lr, save_freq, save_dir,
 
     metrics = []
     for i, (data, target, coord) in enumerate(data_loader):
+
         #data = Variable(data.cuda(async = True))
         #target = Variable(target.cuda(async = True))
         #coord = Variable(coord.cuda(async = True))
