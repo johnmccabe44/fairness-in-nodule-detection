@@ -115,8 +115,8 @@ def main():
     tb_out_dir = os.path.join(args.out_dir, 'runs')
     if not os.path.exists(model_out_dir):
         os.makedirs(model_out_dir)
-    logfile = os.path.join(args.out_dir, 'log_train.txt')
-    sys.stdout = Logger(logfile)
+    #logfile = os.path.join(args.out_dir, 'log_train.txt')
+    #sys.stdout = Logger(logfile)
 
     print('[Training configuration]')
     for arg in vars(args):

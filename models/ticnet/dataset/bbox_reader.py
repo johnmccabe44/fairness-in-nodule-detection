@@ -261,12 +261,13 @@ class Crop(object):
         try:
             crop = np.pad(crop, pad, 'constant', constant_values=self.pad_value)
         except Exception as e:
-            print(filename)
-            print(crop.shape)
-            print(pad)
-            print(crop_size)
-            print(start)
-            print(imgs.shape)
+            print('ERROR')
+            print('filename:', filename, flush=True)
+            print('crop shape:', crop.shape, flush=True)
+            print('pad:', pad, flush=True)
+            print('crop size:', crop_size, flush=True)
+            print('start:', start, flush=True)
+            print('imgs shape:', imgs.shape, flush=True)
             raise e
         
         for i in range(3):
