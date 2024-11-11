@@ -316,7 +316,7 @@ def main():
     tensorboard_writer = SummaryWriter(args.tfevent_path)
 
     # 5. train
-    val_interval = 10  # do validation every val_interval epochs
+    val_interval = 2  # do validation every val_interval epochs
     coco_metric = COCOMetric(classes=["nodule"], iou_list=[0.1], max_detection=[100])
     best_val_epoch_metric = 0.0
     best_val_epoch = -1  # the epoch that gives best validation metrics
@@ -411,6 +411,8 @@ def main():
 
                     if amp:
                         with torch.cuda.amp.autocast():
+                            for i, val_input in enumerate(val_inputs):
+                                logging.debug(f"val_input {i} is on device: {val_input.device}")
                             val_outputs = detector(val_inputs, use_inferer=use_inferer)
                     else:
                         val_outputs = detector(val_inputs, use_inferer=use_inferer)
