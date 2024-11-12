@@ -420,7 +420,7 @@ def main():
                             
                             logging.debug(f"use_inferer: {use_inferer}")
 
-                            val_outputs = detector(val_inputs, use_inferer=use_inferer)
+                            val_outputs = detector(val_inputs, use_inferer=use_inferer.to(device))
                     else:
                         val_outputs = detector(val_inputs, use_inferer=use_inferer)
 
