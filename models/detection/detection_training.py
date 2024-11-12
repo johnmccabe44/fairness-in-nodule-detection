@@ -424,6 +424,9 @@ def main():
                     val_outputs_all += val_outputs
                     val_targets_all += val_data
 
+                    del val_inputs, val_data, val_outputs
+                    torch.cuda.empty_cache()
+
             end_time = time.time()
             logging.info(f"Validation time: {end_time-start_time}s")
 
