@@ -224,10 +224,10 @@ def generate_detection_val_transform(
 
     class PrintImageDetails:
         def __call__(self, data):
-            print(f"image name: {data['image'].meta['filename_or_obj']}")
-            print(f"image shape: {data['image'].shape}, image dtype: {data['image'].dtype}")
-            print(f"box shape: {len(data['box'])}")
-            print(f"label shape: {len(data['label'])}")
+            print(f"image name: {data['image'].meta['filename_or_obj']}", flush=True)
+            print(f"image shape: {data['image'].shape}, image dtype: {data['image'].dtype}", flush=True)
+            print(f"box shape: {len(data['box'])}", flush=True)
+            print(f"label shape: {len(data['label'])}", flush=True)
             return data    
 
     val_transforms = Compose(
