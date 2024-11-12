@@ -404,7 +404,7 @@ def main():
             val_targets_all = []
             start_time = time.time()
             with torch.no_grad():
-                for val_data in val_loader:
+                for batch_idx, val_data in enumerate(val_loader):
                     # if all val_data_i["image"] smaller than args.val_patch_size, no need to use inferer
                     # otherwise, need inferer to handle large input images.
                     use_inferer = not all(
@@ -427,6 +427,13 @@ def main():
                     # save outputs for evaluation
                     val_outputs_all += val_outputs
                     val_targets_all += val_data
+
+                    # Check GPU memory usage
+                    allocated_memory = torch.cuda.memory_allocated(device) / (1024 ** 2)  # In MB
+                    reserved_memory = torch.cuda.memory_reserved(device) / (1024 ** 2)    # In MB
+
+                    print(f"Batch {batch_idx}: Allocated Memory: {allocated_memory:.2f} MB, Reserved Memory: {reserved_memory:.2f} MB")
+                    
 
                     del val_inputs, val_data, val_outputs
                     torch.cuda.empty_cache()
