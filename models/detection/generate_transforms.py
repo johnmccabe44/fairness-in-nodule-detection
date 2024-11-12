@@ -224,10 +224,10 @@ def generate_detection_val_transform(
 
     class PrintImageDetails:
         def __call__(self, data):
-            logging.info(f"image name: {data['image'].meta['filename_or_obj']}", flush=True)
-            logging.info(f"image shape: {data['image'].shape}, image dtype: {data['image'].dtype}", flush=True)
-            logging.info(f"box shape: {len(data['box'])}", flush=True)
-            logging.info(f"label shape: {len(data['label'])}", flush=True)
+            logging.info(f"image name: {data['image'].meta['filename_or_obj']}")
+            logging.info(f"image shape: {data['image'].shape}, image dtype: {data['image'].dtype}")
+            logging.info(f"box shape: {len(data['box'])}")
+            logging.info(f"label shape: {len(data['label'])}")
             return data    
 
     val_transforms = Compose(
