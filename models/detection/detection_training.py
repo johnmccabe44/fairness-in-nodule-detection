@@ -316,7 +316,7 @@ def main():
     tensorboard_writer = SummaryWriter(args.tfevent_path)
 
     # 5. train
-    val_interval = 2  # do validation every val_interval epochs
+    val_interval = 1  # do validation every val_interval epochs
     coco_metric = COCOMetric(classes=["nodule"], iou_list=[0.1], max_detection=[100])
     best_val_epoch_metric = 0.0
     best_val_epoch = -1  # the epoch that gives best validation metrics
@@ -373,7 +373,7 @@ def main():
             logging.debug(f"{step}/{epoch_len}, train_loss: {loss.item():.4f}")
             tensorboard_writer.add_scalar("train_loss", loss.detach().item(), epoch_len * epoch + step)
 
-            if step == 100:
+            if step == 10:
                 break
 
         end_time = time.time()
