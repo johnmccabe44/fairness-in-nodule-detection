@@ -373,6 +373,9 @@ def main():
             logging.debug(f"{step}/{epoch_len}, train_loss: {loss.item():.4f}")
             tensorboard_writer.add_scalar("train_loss", loss.detach().item(), epoch_len * epoch + step)
 
+            if step == 100:
+                break
+
         end_time = time.time()
         logging.info(f"Training time: {end_time-start_time}s")
         del inputs, batch_data

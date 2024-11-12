@@ -222,9 +222,18 @@ def generate_detection_val_transform(
     else:
         compute_dtype = torch.float32
 
+    class PrintImageDetails:
+        def __call__(self, data):
+            print(f"image name: {data['image'].meta['filename_or_obj']}")
+            print(f"image shape: {data['image'].shape}, image dtype: {data['image'].dtype}")
+            print(f"box shape: {data['box'].shape}, box dtype: {data['box'].dtype}")
+            print(f"label shape: {data['label'].shape}, label dtype: {data['label'].dtype}")
+            return data    
+
     val_transforms = Compose(
         [
             LoadImaged(keys=[image_key], meta_key_postfix="meta_dict"),
+            PrintImageDetails(),
             EnsureChannelFirstd(keys=[image_key]),
             EnsureTyped(keys=[image_key, box_key], dtype=torch.float32),
             EnsureTyped(keys=[label_key], dtype=torch.long),
