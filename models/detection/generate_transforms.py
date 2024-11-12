@@ -8,7 +8,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import logging
 import torch
 import numpy as np
 from monai.transforms import (
@@ -224,10 +224,10 @@ def generate_detection_val_transform(
 
     class PrintImageDetails:
         def __call__(self, data):
-            print(f"image name: {data['image'].meta['filename_or_obj']}", flush=True)
-            print(f"image shape: {data['image'].shape}, image dtype: {data['image'].dtype}", flush=True)
-            print(f"box shape: {len(data['box'])}", flush=True)
-            print(f"label shape: {len(data['label'])}", flush=True)
+            logging.info(f"image name: {data['image'].meta['filename_or_obj']}", flush=True)
+            logging.info(f"image shape: {data['image'].shape}, image dtype: {data['image'].dtype}", flush=True)
+            logging.info(f"box shape: {len(data['box'])}", flush=True)
+            logging.info(f"label shape: {len(data['label'])}", flush=True)
             return data    
 
     val_transforms = Compose(
