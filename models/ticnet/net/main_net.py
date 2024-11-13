@@ -127,6 +127,9 @@ class MainNet(nn.Module):
             use origin img/down_4 as another cls feature map
         """
 
+        print(f"Inputs are on device: {inputs.device}")
+        print(f"Feature net is on device: {next(self.feature_net.parameters()).device}")
+
         features, feat_4 = data_parallel(self.feature_net, inputs)
         fs = features[-1]
 
