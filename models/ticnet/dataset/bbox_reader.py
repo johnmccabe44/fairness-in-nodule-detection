@@ -112,8 +112,8 @@ class BboxReader(Dataset):
             image = pad2factor(image[0])
             image = np.expand_dims(image, 0)
 
-            truth_bboxes = None
-            truth_labels = None
+            truth_bboxes = torch.empty(0, 4, dtype=torch.float32)
+            truth_labels = torch.empty(0, dtype=torch.long)
 
             input = (image.astype(np.float32) - 128.) / 128.
 
