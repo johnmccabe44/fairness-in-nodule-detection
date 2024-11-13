@@ -412,14 +412,8 @@ def main():
                     )
                     val_inputs = [val_data_i.pop("image").to(device) for val_data_i in val_data]
 
-
                     if amp:
                         with torch.cuda.amp.autocast():
-                            for i, val_input in enumerate(val_inputs):
-                                logging.debug(f"val_input {i} is on device: {val_input.device}")
-                            
-                            logging.debug(f"use_inferer: {use_inferer}")
-
                             val_outputs = detector(val_inputs, use_inferer=use_inferer)
                     else:
                         val_outputs = detector(val_inputs, use_inferer=use_inferer)
@@ -427,16 +421,6 @@ def main():
                     # save outputs for evaluation
                     val_outputs_all += val_outputs
                     val_targets_all += val_data
-
-                    # Check GPU memory usage
-                    allocated_memory = torch.cuda.memory_allocated(device) / (1024 ** 2)  # In MB
-                    reserved_memory = torch.cuda.memory_reserved(device) / (1024 ** 2)    # In MB
-
-                    print(f"Batch {batch_idx}: Allocated Memory: {allocated_memory:.2f} MB, Reserved Memory: {reserved_memory:.2f} MB")
-                    
-
-                    del val_inputs, val_data, val_outputs
-                    torch.cuda.empty_cache()
 
             end_time = time.time()
             logging.info(f"Validation time: {end_time-start_time}s")
