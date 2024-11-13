@@ -122,7 +122,7 @@ def eval(net, dataset, annotations_path=None, annotations_excluded_path=None, sa
                 truth_bboxes = truth_bboxes.to(device) if truth_bboxes is not None else None
                 truth_labels = truth_labels.to(device) if truth_labels is not None else None
 
-                net.forward(input, truth_bboxes.to(), truth_labels)
+                net.forward(input, truth_bboxes, truth_labels)
 
             rpns = net.rpn_proposals.cpu().numpy()
             rcnns = net.detections.cpu().numpy()
