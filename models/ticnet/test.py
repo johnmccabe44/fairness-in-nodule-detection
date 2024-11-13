@@ -107,6 +107,9 @@ def eval(net, dataset, annotations_path=None, annotations_excluded_path=None, sa
     rcnn_res = []
     ensemble_res = []
 
+
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
     print(f'Total num of eval data {len(dataset)}')
     for i, (input, truth_bboxes, truth_labels, image) in enumerate(dataset):
         try:
@@ -115,8 +118,11 @@ def eval(net, dataset, annotations_path=None, annotations_excluded_path=None, sa
             print(f'Scan {i} pid {pid} shape {image.shape}')
 
             with torch.no_grad():
-                input = input.cuda().unsqueeze(0)
-                net.forward(input, truth_bboxes, truth_labels)
+                input = input.unsqueeze(0).to(device)
+                truth_bboxes = truth_bboxes.to(device)
+                truth_labels = truth_labels.to(device)
+
+                net.forward(input, truth_bboxes.to(), truth_labels)
 
             rpns = net.rpn_proposals.cpu().numpy()
             rcnns = net.detections.cpu().numpy()
