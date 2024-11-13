@@ -308,7 +308,7 @@ def main():
     )
     after_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=150, gamma=0.1)
     scheduler_warmup = GradualWarmupScheduler(optimizer, multiplier=1, total_epoch=10, after_scheduler=after_scheduler)
-    scaler = torch.cuda.amp.GradScaler() if amp else None
+    scaler = torch.amp.GradScaler(device=device) if amp else None
     optimizer.zero_grad()
     optimizer.step()
 
@@ -354,7 +354,7 @@ def main():
                 param.grad = None
 
             if amp and (scaler is not None):
-                with torch.cuda.amp.autocast():
+                with torch.amp.autocast(device_type=device):
                     outputs = detector(inputs, targets)
                     loss = w_cls * outputs[detector.cls_key] + outputs[detector.box_reg_key]
                 scaler.scale(loss).backward()
@@ -410,7 +410,7 @@ def main():
                     val_inputs = [val_data_i.pop("image").to(device) for val_data_i in val_data]
 
                     if amp:
-                        with torch.cuda.amp.autocast():
+                        with torch.amp.autocast(device_type=device):
                             val_outputs = detector(val_inputs, use_inferer=use_inferer)
                     else:
                         val_outputs = detector(val_inputs, use_inferer=use_inferer)
