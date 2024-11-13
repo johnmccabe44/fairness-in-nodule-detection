@@ -100,7 +100,7 @@ def main():
     dataset = BboxReader(data_dir, test_set_name, net_config, mode='eval')
     eval(model, dataset, args.annotations_path, args.annotations_excluded_path, save_dir)
 
-def eval(net, dataset, annotations_path, annotations_excluded_path, save_dir=None):
+def eval(net, dataset, annotations_path=None, annotations_excluded_path=None, save_dir=None):
     net.use_rcnn = True
     net.set_mode('eval')
     rpn_res = []
@@ -177,26 +177,26 @@ def eval(net, dataset, annotations_path, annotations_excluded_path, save_dir=Non
     df = pd.DataFrame(ensemble_res, columns=col_names)
     df.to_csv(ensemble_submission_path, index=False)
  
-    # Start evaluating
-    if not os.path.exists(os.path.join(eval_dir, 'rpn')):
-        os.makedirs(os.path.join(eval_dir, 'rpn'))
-    if not os.path.exists(os.path.join(eval_dir, 'rcnn')):
-        os.makedirs(os.path.join(eval_dir, 'rcnn'))
-    if not os.path.exists(os.path.join(eval_dir, 'ensemble')):
-        os.makedirs(os.path.join(eval_dir, 'ensemble'))
+    # # Start evaluating
+    # if not os.path.exists(os.path.join(eval_dir, 'rpn')):
+    #     os.makedirs(os.path.join(eval_dir, 'rpn'))
+    # if not os.path.exists(os.path.join(eval_dir, 'rcnn')):
+    #     os.makedirs(os.path.join(eval_dir, 'rcnn'))
+    # if not os.path.exists(os.path.join(eval_dir, 'ensemble')):
+    #     os.makedirs(os.path.join(eval_dir, 'ensemble'))
  
 
-    noduleCADEvaluation(annotations_path,
-                        annotations_excluded_path,
-                        dataset.set_name, rpn_submission_path, os.path.join(eval_dir, 'rpn'))
+    # noduleCADEvaluation(annotations_path,
+    #                     annotations_excluded_path,
+    #                     dataset.set_name, rpn_submission_path, os.path.join(eval_dir, 'rpn'))
 
-    noduleCADEvaluation(annotations_path,
-                        annotations_excluded_path,
-                        dataset.set_name, rcnn_submission_path, os.path.join(eval_dir, 'rcnn'))
+    # noduleCADEvaluation(annotations_path,
+    #                     annotations_excluded_path,
+    #                     dataset.set_name, rcnn_submission_path, os.path.join(eval_dir, 'rcnn'))
 
-    noduleCADEvaluation(annotations_path,
-                        annotations_excluded_path,
-                        dataset.set_name, ensemble_submission_path, os.path.join(eval_dir, 'ensemble'))
+    # noduleCADEvaluation(annotations_path,
+    #                     annotations_excluded_path,
+    #                     dataset.set_name, ensemble_submission_path, os.path.join(eval_dir, 'ensemble'))
 
 
 
