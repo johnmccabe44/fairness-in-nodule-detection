@@ -18,18 +18,52 @@ from net.main_net import build_model
 
 this_module = sys.modules[__name__]
 warnings.filterwarnings("ignore")
-os.environ['CUDA_VISIBLE_DEVICES'] = '2,3'
+#os.environ['CUDA_VISIBLE_DEVICES'] = '2,3'
 setproctitle.setproctitle('ticnet-test')
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--mode", type=str, default="eval",
-                    help="you want to test or val")
-parser.add_argument("--weight", type=str, default=train_config['initial_checkpoint'],
-                    help="path to model weights to be used")
-parser.add_argument("--out-dir", type=str, default=train_config['out_dir'],
-                    help="path to save the results")
-parser.add_argument("--test_set_name", type=str, default=train_config['test_set_name'],
-                    help="path to test image list")
+parser.add_argument(
+    "--mode",
+    type=str,
+    default="eval",
+    help="you want to test or val"
+)
+
+parser.add_argument(
+    "--weight",
+    type=str,
+    help="path to model weights to be used"
+)
+
+parser.add_argument(
+    "--preprocessed-dir",
+    type=str,
+    help="path to save the results"
+)
+
+parser.add_argument(
+    "--out-dir",
+    type=str,
+    help="path to save the results"
+)
+
+parser.add_argument(
+    "--test-set-name",
+    type=str,
+    help="path to test image list"
+)
+
+parser.add_argument(
+    "--annotations-path",
+    type=str,
+    help="path to annotations"
+)
+
+parser.add_argument(
+    "--annotations-excluded-path",
+    type=str,
+    help="path to excluded annotations"
+)
 
 def main():
     logging.basicConfig(
@@ -37,7 +71,7 @@ def main():
     args = parser.parse_args()
 
     assert args.mode == 'eval', 'Mode %s is not supported. ✘' % args.mode
-    data_dir = data_config['preprocessed_data_dir']
+    data_dir = args.preprocessed_dir
     test_set_name = args.test_set_name
 
     initial_checkpoint = args.weight
@@ -64,9 +98,9 @@ def main():
     sys.stdout = Logger(logfile)
 
     dataset = BboxReader(data_dir, test_set_name, net_config, mode='eval')
-    eval(model, dataset, save_dir)
+    eval(model, dataset, args.annotations_path, args.annotations_excluded_path, save_dir)
 
-def eval(net, dataset, save_dir=None):
+def eval(net, dataset, annotations_path, annotations_excluded_path, save_dir=None):
     net.use_rcnn = True
     net.set_mode('eval')
     rpn_res = []
@@ -152,16 +186,16 @@ def eval(net, dataset, save_dir=None):
         os.makedirs(os.path.join(eval_dir, 'ensemble'))
  
 
-    noduleCADEvaluation('annotations/new_annotations.csv',
-                        'annotations/new_annotations_excluded.csv',
+    noduleCADEvaluation(annotations_path,
+                        annotations_excluded_path,
                         dataset.set_name, rpn_submission_path, os.path.join(eval_dir, 'rpn'))
 
-    noduleCADEvaluation('annotations/new_annotations.csv',
-                        'annotations/new_annotations_excluded.csv',
+    noduleCADEvaluation(annotations_path,
+                        annotations_excluded_path,
                         dataset.set_name, rcnn_submission_path, os.path.join(eval_dir, 'rcnn'))
 
-    noduleCADEvaluation('annotations/new_annotations.csv',
-                        'annotations/new_annotations_excluded.csv',
+    noduleCADEvaluation(annotations_path,
+                        annotations_excluded_path,
                         dataset.set_name, ensemble_submission_path, os.path.join(eval_dir, 'ensemble'))
 
 
