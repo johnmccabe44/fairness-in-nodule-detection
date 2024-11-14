@@ -1,4 +1,5 @@
 import itertools
+import numpy as np
 
 from torch.autograd import Variable
 
