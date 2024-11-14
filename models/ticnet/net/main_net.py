@@ -127,10 +127,12 @@ class MainNet(nn.Module):
             use origin img/down_4 as another cls feature map
         """
 
-        features, feat_4 = self.feature_net, inputs
+        features, feat_4 = self.feature_net(inputs)
         fs = features[-1]
 
-        self.rpn_logits_flat, self.rpn_deltas_flat = self.rpn, fs
+
+    
+        self.rpn_logits_flat, self.rpn_deltas_flat = self.rpn(fs)
 
         b, D, H, W, _, num_class = self.rpn_logits_flat.shape
 
@@ -167,7 +169,7 @@ class MainNet(nn.Module):
                 # rcnn on down_4
                 rcnn_crops = self.rcnn_crop(feat_4, inputs, self.rpn_proposals)
 
-                self.rcnn_logits, self.rcnn_deltas = self.rcnn_head, rcnn_crops
+                self.rcnn_logits, self.rcnn_deltas = self.rcnn_head(rcnn_crops)
                 self.detections, self.keeps = rcnn_nms(self.cfg, self.mode, inputs, self.rpn_proposals,
                                                        self.rcnn_logits, self.rcnn_deltas)
 
