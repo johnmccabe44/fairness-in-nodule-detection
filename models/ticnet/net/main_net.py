@@ -129,6 +129,18 @@ class MainNet(nn.Module):
 
         print(f"Inputs are on device: {inputs.device}")
         print(f"Feature net is on device: {next(self.feature_net.parameters()).device}")
+        
+        # Check parameters
+        for name, param in self.feature_net.named_parameters():
+            if param.device != torch.device("cuda:0"):
+                print(f"Parameter {name} is on device {param.device}, expected cuda:0")
+
+        # Check buffers
+        for name, buffer in self.feature_net.named_buffers():
+            if buffer.device != torch.device("cuda:0"):
+                print(f"Buffer {name} is on device {buffer.device}, expected cuda:0")
+
+
 
         features, feat_4 = data_parallel(self.feature_net, inputs)
         fs = features[-1]
