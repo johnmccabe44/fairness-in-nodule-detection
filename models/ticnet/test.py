@@ -7,7 +7,6 @@ import warnings
 import numpy as np
 import pandas as pd
 import torch
-from zmq import device
 import setproctitle
 from config import net_config, data_config, train_config
 from dataset.bbox_reader import BboxReader
