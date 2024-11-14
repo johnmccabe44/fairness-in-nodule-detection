@@ -127,25 +127,10 @@ class MainNet(nn.Module):
             use origin img/down_4 as another cls feature map
         """
 
-        print(f"Inputs are on device: {inputs.device}")
-        print(f"Feature net is on device: {next(self.feature_net.parameters()).device}")
-        
-        # Check parameters
-        for name, param in self.feature_net.named_parameters():
-            if param.device != torch.device("cuda:0"):
-                print(f"Parameter {name} is on device {param.device}, expected cuda:0")
-
-        # Check buffers
-        for name, buffer in self.feature_net.named_buffers():
-            if buffer.device != torch.device("cuda:0"):
-                print(f"Buffer {name} is on device {buffer.device}, expected cuda:0")
-
-
-
-        features, feat_4 = data_parallel(self.feature_net, inputs)
+        features, feat_4 = self.feature_net, inputs
         fs = features[-1]
 
-        self.rpn_logits_flat, self.rpn_deltas_flat = data_parallel(self.rpn, fs)
+        self.rpn_logits_flat, self.rpn_deltas_flat = self.rpn, fs
 
         b, D, H, W, _, num_class = self.rpn_logits_flat.shape
 
@@ -182,7 +167,7 @@ class MainNet(nn.Module):
                 # rcnn on down_4
                 rcnn_crops = self.rcnn_crop(feat_4, inputs, self.rpn_proposals)
 
-                self.rcnn_logits, self.rcnn_deltas = data_parallel(self.rcnn_head, rcnn_crops)
+                self.rcnn_logits, self.rcnn_deltas = self.rcnn_head, rcnn_crops
                 self.detections, self.keeps = rcnn_nms(self.cfg, self.mode, inputs, self.rpn_proposals,
                                                        self.rcnn_logits, self.rcnn_deltas)
 

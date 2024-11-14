@@ -7,6 +7,7 @@ import warnings
 import numpy as np
 import pandas as pd
 import torch
+from zmq import device
 import setproctitle
 from config import net_config, data_config, train_config
 from dataset.bbox_reader import BboxReader
@@ -76,7 +77,12 @@ def main():
 
     initial_checkpoint = args.weight
     model = build_model(net_config)
-    model = model.cuda()
+    
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu') 
+    model = model.to(device)
+
+    if torch.cuda.device_count() > 1:
+        model = torch.nn.DataParallel(model)
 
     if initial_checkpoint:
         print(f'Loading model from {initial_checkpoint}...')
