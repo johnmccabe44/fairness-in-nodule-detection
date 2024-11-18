@@ -35,7 +35,7 @@ def parse_args():
 
     parser.add_argument(
         '--annotations-excluded-file',
-        type=str, 
+        type=Path, 
         help='Path to annotations to be excluded'
     )
 
@@ -55,6 +55,12 @@ def parse_args():
         '--preprocessed-dir', 
         type=Path, 
         help='Path to preprocessed data'
+    )
+
+    parser.add_argument(
+        '--bbox-dir',
+        type=Path,
+        help='Path to save bounding boxes'
     )
 
     parser.add_argument(
@@ -98,13 +104,13 @@ def get_anno_dict(annotations_file, mappings):
 
     return annotations_dict
 
-def generate_label(annos_dict, scan_ids, img_dir):
+def generate_label(annos_dict, scan_ids, preprocessed_dir, bbox_dir):
     
     for uid in tqdm(scan_ids):
         
-        origin = np.load(img_dir / f'{uid}_origin.npy')
-        spacing = np.load(img_dir / f'{uid}_spacing.npy')
-        ebox = np.load(img_dir / f'{uid}_ebox.npy')
+        origin = np.load(preprocessed_dir / f'{uid}_origin.npy')
+        spacing = np.load(preprocessed_dir / f'{uid}_spacing.npy')
+        ebox = np.load(preprocessed_dir / f'{uid}_ebox.npy')
 
         new_annos = []
         if uid in annos_dict.keys():
@@ -117,9 +123,9 @@ def generate_label(annos_dict, scan_ids, img_dir):
                 new_annos.append(new_coord)
             annos_dict[uid] = new_annos
 
-        np.save(os.path.join(img_dir, '%s_bboxes.npy' % (uid)), np.array(new_annos))
+        np.save(os.path.join(bbox_dir, '%s_bboxes.npy' % (uid)), np.array(new_annos))
 
-def annotation_to_npy(annotations_file, scan_ids, preprocessed_dir, output_path, mappings):
+def annotation_to_npy(annotations_file, scan_ids, preprocessed_dir, bbox_dir, output_path, mappings):
 
 
     transformed_annotations_file = output_path / annotations_file.name
@@ -130,7 +136,7 @@ def annotation_to_npy(annotations_file, scan_ids, preprocessed_dir, output_path,
 
     annos_dict = get_anno_dict(annotations_file, mappings)
 
-    generate_label(annos_dict, scan_ids, preprocessed_dir)
+    generate_label(annos_dict, scan_ids, preprocessed_dir, bbox_dir)
 
     
 
@@ -194,6 +200,9 @@ if __name__ == '__main__':
     annotations_path = (args.transformed_annotations_dir / args.flavour)
     annotations_path.mkdir(parents=True, exist_ok=True)
 
+    bbox_path = args.bbox_dir
+    bbox_path.mkdir(parents=True, exist_ok=True)
+
     scan_ids = pd.read_csv(args.scan_id_file).iloc[:,0].tolist()
     with open(annotations_path / f'{args.dataset}_scans.txt' , 'w') as file:
         for scan_id in scan_ids:
@@ -208,6 +217,7 @@ if __name__ == '__main__':
         args.annotations_file,
         scan_ids,
         args.preprocessed_dir,
+        args.bbox_dir,
         annotations_path,
         mappings
     )
