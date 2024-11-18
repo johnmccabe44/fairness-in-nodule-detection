@@ -161,18 +161,19 @@ def annotation_exclude_to_npy(annotations_excluded_dir, scan_ids, preprocessed_d
 
 
     for uid in tqdm(scan_ids):
-        annos = annos_exclude_dict[uid]
-        origin = np.load(preprocessed_dir + '/' + uid + '_origin.npy')
-        spacing = np.load(preprocessed_dir + '/' + uid + '_spacing.npy')
-        ebox = np.load(preprocessed_dir + '/' + uid + '_ebox.npy')
-        new_annos_exclude = []
-        for anno in annos:
-            anno[[0, 1, 2]] = anno[[2, 1, 0]]
-            coord = anno[:-1]
-            new_coord = worldToVoxelCoord(coord, origin, spacing) * spacing - ebox
-            new_coord = np.append(new_coord, anno[-1])
-            new_annos_exclude.append(new_coord)
-        annos_exclude_dict[uid] = new_annos_exclude
+        if uid in annos_exclude_dict.keys():
+            annos = annos_exclude_dict[uid]
+            origin = np.load(preprocessed_dir + '/' + uid + '_origin.npy')
+            spacing = np.load(preprocessed_dir + '/' + uid + '_spacing.npy')
+            ebox = np.load(preprocessed_dir + '/' + uid + '_ebox.npy')
+            new_annos_exclude = []
+            for anno in annos:
+                anno[[0, 1, 2]] = anno[[2, 1, 0]]
+                coord = anno[:-1]
+                new_coord = worldToVoxelCoord(coord, origin, spacing) * spacing - ebox
+                new_coord = np.append(new_coord, anno[-1])
+                new_annos_exclude.append(new_coord)
+            annos_exclude_dict[uid] = new_annos_exclude
 
     transformed_annotations_exclude_file = output_path / annotations_excluded_dir.name
 
