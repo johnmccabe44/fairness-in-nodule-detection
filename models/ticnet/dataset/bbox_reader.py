@@ -11,13 +11,14 @@ import time
 
 
 class BboxReader(Dataset):
-    def __init__(self, data_dir, set_name, cfg, mode='train', split_combiner=None):
+    def __init__(self, data_dir, bbox_dir, set_name, cfg, mode='train', split_combiner=None):
         self.mode = mode
         self.cfg = cfg
         self.r_rand = cfg['r_rand_crop']
         self.augtype = cfg['augtype']
         self.pad_value = cfg['pad_value']
         self.data_dir = data_dir
+        self.bbox_dir = bbox_dir
         self.stride = cfg['stride']
         self.blacklist = cfg['blacklist']
         self.set_name = set_name
@@ -33,7 +34,7 @@ class BboxReader(Dataset):
             self.filenames = [f for f in self.filenames if (f not in self.blacklist)]
 
         for fn in self.filenames:
-            l = np.load(os.path.join(data_dir, '%s_bboxes.npy' % fn))
+            l = np.load(os.path.join(bbox_dir, '%s_bboxes.npy' % fn))
             if np.all(l == 0):
                 l = np.array([])
             labels.append(l)

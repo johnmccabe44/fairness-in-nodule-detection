@@ -51,6 +51,8 @@ parser.add_argument('--val-set-list', default=train_config['val_set_list'], narg
                     help='val set paths list')
 parser.add_argument('--data-dir', default=train_config['DATA_DIR'], type=str, metavar='OUT',
                     help='path to load data')
+parser.add_argument('--bbox-dir', default=train_config['BBOX_DIR'], type=str, metavar='OUT',
+                    help='Path to bboxes')
 parser.add_argument('--num-workers', default=train_config['num_workers'], type=int, metavar='N',
                     help='number of data loading workers')
 
@@ -68,7 +70,7 @@ def main():
         label_type = label_types[i]
 
         assert label_type == 'bbox', 'DataLoader not support'
-        dataset = BboxReader(args.data_dir, set_name, net_config, mode='train')
+        dataset = BboxReader(args.data_dir, args.bbox_dir, set_name, net_config, mode='train')
         train_dataset_list.append(dataset)
 
     for i in range(len(args.val_set_list)):
@@ -76,7 +78,7 @@ def main():
         label_type = label_types[i]
 
         assert label_type == 'bbox', 'DataLoader not support'
-        dataset = BboxReader(args.data_dir, set_name, net_config, mode='val')
+        dataset = BboxReader(args.data_dir, args.bbox_dir, set_name, net_config, mode='val')
         val_dataset_list.append(dataset)
 
     train_loader = DataLoader(ConcatDataset(train_dataset_list), batch_size=args.batch_size, shuffle=True,
