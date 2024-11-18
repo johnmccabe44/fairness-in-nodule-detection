@@ -153,45 +153,41 @@ def annotation_to_npy(annotations_file, scan_ids, preprocessed_dir, bbox_dir, ou
         print("Unexpected error:", sys.exc_info()[0])
 
 def annotation_exclude_to_npy(annotations_excluded_dir, scan_ids, preprocessed_dir, output_path, mappings):
+    
     try:
         annos_exclude_dict = get_anno_dict(annotations_excluded_dir, mappings)
     except:
-        print("Unexpected error:", sys.exc_info()[0])
+        print("Unexpected error 1:", sys.exc_info()[0])
 
-    try:
-        for uid in scan_ids:
-            annos = annos_exclude_dict[uid]
-            origin = np.load(preprocessed_dir + '/' + uid + '_origin.npy')
-            spacing = np.load(preprocessed_dir + '/' + uid + '_spacing.npy')
-            ebox = np.load(preprocessed_dir + '/' + uid + '_ebox.npy')
-            new_annos_exclude = []
-            for anno in annos:
-                anno[[0, 1, 2]] = anno[[2, 1, 0]]
-                coord = anno[:-1]
-                new_coord = worldToVoxelCoord(coord, origin, spacing) * spacing - ebox
-                new_coord = np.append(new_coord, anno[-1])
-                new_annos_exclude.append(new_coord)
-            annos_exclude_dict[uid] = new_annos_exclude
-    except:
-        print("Unexpected error:", sys.exc_info()[0])
 
-    try:
+    for uid in tqdm(scan_ids):
+        annos = annos_exclude_dict[uid]
+        origin = np.load(preprocessed_dir + '/' + uid + '_origin.npy')
+        spacing = np.load(preprocessed_dir + '/' + uid + '_spacing.npy')
+        ebox = np.load(preprocessed_dir + '/' + uid + '_ebox.npy')
+        new_annos_exclude = []
+        for anno in annos:
+            anno[[0, 1, 2]] = anno[[2, 1, 0]]
+            coord = anno[:-1]
+            new_coord = worldToVoxelCoord(coord, origin, spacing) * spacing - ebox
+            new_coord = np.append(new_coord, anno[-1])
+            new_annos_exclude.append(new_coord)
+        annos_exclude_dict[uid] = new_annos_exclude
 
-        transformed_annotations_exclude_file = output_path / annotations_excluded_dir.name
+    transformed_annotations_exclude_file = output_path / annotations_excluded_dir.name
 
-        if Path(transformed_annotations_exclude_file).exists():
-            print(f'File {transformed_annotations_exclude_file} already exists. Skipping conversion')
-            return
+    if Path(transformed_annotations_exclude_file).exists():
+        print(f'File {transformed_annotations_exclude_file} already exists. Skipping conversion')
+        return
 
-        with open(transformed_annotations_exclude_file, 'w') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow(["seriesuid", "coordX", "coordY", "coordZ", "diameter_mm"])
+    with open(transformed_annotations_exclude_file, 'w') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["seriesuid", "coordX", "coordY", "coordZ", "diameter_mm"])
 
-            for uid in annos_exclude_dict.keys():
-                for annos in annos_exclude_dict[uid]:
-                    writer.writerow([uid, annos[2], annos[1], annos[0], annos[3]])
-    except:
-        print("Unexpected error:", sys.exc_info()[0])
+        for uid in annos_exclude_dict.keys():
+            for annos in annos_exclude_dict[uid]:
+                writer.writerow([uid, annos[2], annos[1], annos[0], annos[3]])
+
 
 if __name__ == '__main__':
 
