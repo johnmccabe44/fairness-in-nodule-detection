@@ -163,9 +163,9 @@ def annotation_exclude_to_npy(annotations_excluded_dir, scan_ids, preprocessed_d
     for uid in tqdm(scan_ids):
         if uid in annos_exclude_dict.keys():
             annos = annos_exclude_dict[uid]
-            origin = np.load(preprocessed_dir + '/' + uid + '_origin.npy')
-            spacing = np.load(preprocessed_dir + '/' + uid + '_spacing.npy')
-            ebox = np.load(preprocessed_dir + '/' + uid + '_ebox.npy')
+            origin = np.load(preprocessed_dir / f'{uid}_origin.npy')
+            spacing = np.load(preprocessed_dir/ f'{uid}_spacing.npy')
+            ebox = np.load(preprocessed_dir / f'{uid}_ebox.npy')
             new_annos_exclude = []
             for anno in annos:
                 anno[[0, 1, 2]] = anno[[2, 1, 0]]
