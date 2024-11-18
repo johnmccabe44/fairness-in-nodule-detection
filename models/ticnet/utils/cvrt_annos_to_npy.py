@@ -152,14 +152,14 @@ def annotation_to_npy(annotations_file, scan_ids, preprocessed_dir, bbox_dir, ou
     except:
         print("Unexpected error:", sys.exc_info()[0])
 
-def annotation_exclude_to_npy(annotations_excluded_dir, preprocessed_dir, output_path, mappings):
+def annotation_exclude_to_npy(annotations_excluded_dir, scan_ids, preprocessed_dir, output_path, mappings):
     try:
         annos_exclude_dict = get_anno_dict(annotations_excluded_dir, mappings)
     except:
         print("Unexpected error:", sys.exc_info()[0])
 
     try:
-        for uid in annos_exclude_dict.keys():
+        for uid in scan_ids:
             annos = annos_exclude_dict[uid]
             origin = np.load(preprocessed_dir + '/' + uid + '_origin.npy')
             spacing = np.load(preprocessed_dir + '/' + uid + '_spacing.npy')
