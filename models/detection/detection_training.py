@@ -294,7 +294,7 @@ def main():
         overlap=0.25,
         sw_batch_size=1,
         mode="constant",
-        device="cpu",
+        device=device.type,
     )
 
     # 4. Initialize training
@@ -354,7 +354,7 @@ def main():
                 param.grad = None
 
             if amp and (scaler is not None):
-                with torch.amp.autocast(device_type=device):
+                with torch.amp.autocast(device_type=device.type):
                     outputs = detector(inputs, targets)
                     loss = w_cls * outputs[detector.cls_key] + outputs[detector.box_reg_key]
                 scaler.scale(loss).backward()
@@ -410,7 +410,7 @@ def main():
                     val_inputs = [val_data_i.pop("image").to(device) for val_data_i in val_data]
 
                     if amp:
-                        with torch.amp.autocast(device_type=device):
+                        with torch.amp.autocast(device_type=device.type):
                             val_outputs = detector(val_inputs, use_inferer=use_inferer)
                     else:
                         val_outputs = detector(val_inputs, use_inferer=use_inferer)
