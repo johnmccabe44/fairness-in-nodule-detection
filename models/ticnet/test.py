@@ -42,6 +42,12 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--bbox-dir",
+    type=str,
+    help="path to save the labels"
+)
+
+parser.add_argument(
     "--out-dir",
     type=str,
     help="path to save the results"
@@ -72,6 +78,7 @@ def main():
 
     assert args.mode == 'eval', 'Mode %s is not supported. ✘' % args.mode
     data_dir = args.preprocessed_dir
+    bbox_dir = args.bbox_dir
     test_set_name = args.test_set_name
 
     initial_checkpoint = args.weight
@@ -102,7 +109,7 @@ def main():
     logfile = os.path.join(args.out_dir, 'log_test.txt')
     sys.stdout = Logger(logfile)
 
-    dataset = BboxReader(data_dir, test_set_name, net_config, mode='eval')
+    dataset = BboxReader(data_dir, bbox_dir, test_set_name, net_config, mode='eval')
     eval(model, dataset, args.annotations_path, args.annotations_excluded_path, save_dir)
 
 def eval(net, dataset, annotations_path=None, annotations_excluded_path=None, save_dir=None):
