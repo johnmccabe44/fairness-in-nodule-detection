@@ -59,13 +59,13 @@ def merge_lbl_and_metadata(idx:int, lbb_paths: List[Path], metadata: pd.DataFram
             return None
         
         if nodule_metadata.shape[0] == 0 and not np.array_equal(lbb, [[0,0,0,0]]):
-            raise ShapeDifferentException(f'Label and metadata mismatch for stem. md:{nodule_metadata.shape[0]}, lbb:{lbb.shape[0]}, {scan_id}')
+            raise ShapeDifferentException(f'Label and metadata mismatch for stem. md:{nodule_metadata.shape[0]}, lbb:{lbb.shape[0]}|{lbb}, {scan_id}')
         
         if nodule_metadata.shape[0] > 0 and np.array_equal(lbb, [[0,0,0,0]]):
-            raise ShapeDifferentException(f'Label and metadata mismatch for stem. md:{nodule_metadata.shape[0]}, lbb:{lbb.shape[0]}, {scan_id}')
+            raise ShapeDifferentException(f'Label and metadata mismatch for stem. md:{nodule_metadata.shape[0]}, lbb:{lbb.shape[0]}|{lbb}, {scan_id}')
         
         if nodule_metadata.shape[0] != lbb.shape[0]:
-            raise ShapeDifferentException(f'Label and metadata mismatch for stem. md:{nodule_metadata.shape[0]}, lbb:{lbb.shape[0]}, {scan_id}')
+            raise ShapeDifferentException(f'Label and metadata mismatch for stem. md:{nodule_metadata.shape[0]}, lbb:{lbb.shape[0]}|{lbb}, {scan_id}')
         
         d_mean = np.mean(lbb[:,3] / nodule_metadata.diameter_mm)
         d_std = np.std(lbb[:,3] / nodule_metadata.diameter_mm)
@@ -128,6 +128,12 @@ if __name__ == '__main__':
 
     metadata_path = Path(args.metadata_name)
     metadata = pd.read_csv(metadata_path)
+
+    if not 'scan_id' in metadata.columns and 'participant_id' in metadata.columns:
+        metadata['scan_id'] = metadata['participant_id'] + '_Y0_BASELINE_A'
+
+    if 'diameter_mm' not in metadata.columns:
+        metadata['diameter_mm'] = metadata['nodule_diameter_mm']
 
     bbox_path = Path(args.bbox_result_path)
 
