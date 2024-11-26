@@ -55,13 +55,13 @@ def merge_lbl_and_metadata(idx:int, lbb_paths: List[Path], metadata: pd.DataFram
 
         nodule_metadata = metadata[metadata.scan_id==scan_id]
 
-        if nodule_metadata.shape[0] == 0 and np.array_equal(lbb, [[0,0,0,0]]):
+        if nodule_metadata.shape[0] == 0 and lbb == []:
             return None
         
-        if nodule_metadata.shape[0] == 0 and not np.array_equal(lbb, [[0,0,0,0]]):
+        if nodule_metadata.shape[0] == 0 and lbb != []:
             raise ShapeDifferentException(f'Label and metadata mismatch for stem. md:{nodule_metadata.shape[0]}, lbb:{lbb.shape[0]}|{lbb}, {scan_id}')
         
-        if nodule_metadata.shape[0] > 0 and np.array_equal(lbb, [[0,0,0,0]]):
+        if nodule_metadata.shape[0] > 0 and lbb == []:
             raise ShapeDifferentException(f'Label and metadata mismatch for stem. md:{nodule_metadata.shape[0]}, lbb:{lbb.shape[0]}|{lbb}, {scan_id}')
         
         if nodule_metadata.shape[0] != lbb.shape[0]:
