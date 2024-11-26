@@ -116,7 +116,7 @@ def combine_metadata(scan_ids: List[str], metadata: pd.DataFrame, bbox_path: Pat
 
     return pd.concat(md_and_lbb).reset_index().rename(columns={'level_0' : 'id'})
 
-def main(name: str, scan_ids : List[str], metadata: pd.DataFrame, bbox_path: Path, output_path: Path, threshold: float, workers: int):
+def main(name: str, scan_ids : List[str], metadata: pd.DataFrame, bbox_path: Path, output_path: Path, workers: int):
     
     combine_metadata(scan_ids, metadata, bbox_path, workers).to_csv(Path(output_path, f'{name}_metadata.csv'), index=False)
 
