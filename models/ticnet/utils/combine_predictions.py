@@ -30,6 +30,8 @@ def parse_arguments():
 
     parser.add_argument('--metadata-name', type=str, help='Name of the metadata file')
 
+    parser.add_argument('--bbox-result-path', type=str, help='Path to where the predictions live')
+    
     parser.add_argument('--output-path', type=str, help='Output path where the final analysis files will live')
 
     parser.add_argument('--workers', type=int, help='Number of workers used in multi-processing, assume cores * 2')
