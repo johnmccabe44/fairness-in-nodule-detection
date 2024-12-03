@@ -291,7 +291,7 @@ def display_nodules(scan_id, scan_path, data):
         axs[i].add_patch(rect)
         axs[i].set_title(f"{row['nodule_type']} ({row['nodule_diameter_mm']}mm)")
 
-    plt.savefig(f'results/{scan_id}_nodules.png')
+    plt.savefig(f'results/images/{scan_id}_nodules.png')
 
 def build_lung_masks(segmentation_path, output_path):
 
@@ -467,6 +467,9 @@ class MissedNodulesFlow(FlowSpec):
 
     @step
     def calculate_distances(self):
+
+        Path('results/images').mkdir(exist_ok=True)
+        Path('segmentations').mkdir(exist_ok=True)
 
         missed_nodule_counts = {}
         for model in self.results.keys():
