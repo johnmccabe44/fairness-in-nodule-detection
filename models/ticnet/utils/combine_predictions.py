@@ -73,7 +73,7 @@ def merge_lbl_and_metadata(idx:int, lbb_paths: List[Path], metadata: pd.DataFram
         #if not math.isclose(d_mean, 1, abs_tol=1e-4) or not math.isclose(d_std, 0, abs_tol=1e-4):
         #    raise TooHighMetricException(f'Mean is too high for the spacing: {scan_id}, {d_mean}, {d_std}')
 
-        nodule_metadata.loc[:,['index','row','col','diameter']] = lbb
+        nodule_metadata.loc[:,['index','col','row','diameter']] = lbb
         nodule_metadata.loc[:,'threshold'] = MIN_THRESHOLD
         nodule_metadata.loc[:,'name'] = scan_id
 
@@ -118,7 +118,6 @@ def combine_metadata(scan_ids: List[str], metadata: pd.DataFrame, bbox_path: Pat
 def main(name: str, scan_ids : List[str], metadata: pd.DataFrame, bbox_path: Path, output_path: Path, workers: int):
     
     combine_metadata(scan_ids, metadata, bbox_path, workers).to_csv(Path(output_path, f'{name}_metadata.csv'), index=False)
-
 
 if __name__ == '__main__':
     args = parse_arguments()
