@@ -1,5 +1,6 @@
 import json
 from operator import is_
+import re
 import comm
 from cv2 import mean, norm, normalize
 import numpy as np
@@ -704,6 +705,7 @@ def copy_scan_from_cluster(scan_id):
     else:
         print(f'{scan_id} already exists')
 
+    return f"{workspace_path}/data/summit/scans/{study_id}/{scan_id}.mhd"
 
 
 def display_plots_with_error_bars(model, flavour, actionable, protected_group, categories, sensitivity_data, bootstrap_results, output_path=None):
