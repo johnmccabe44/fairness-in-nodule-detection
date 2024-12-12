@@ -150,7 +150,7 @@ def load_data(workspace_path, model, flavour, actionable):
             subprocess.run(
                 [
                     'scp', 
-                    f'jmccabe@little:/cluster/project2/SUMMIT/cache/sota/ticnet/annotations/summit/{flavour}/{flavour}_metadata.csv',
+                    f'jmccabe@little:/cluster/project2/SUMMIT/cache/sota/ticnet/summit/bboxes/{flavour}/{flavour}_metadata.csv',
                     f'{workspace_path}/models/ticnet/annotations/summit/{flavour}/{flavour}_metadata.csv'
                 ],
                 check=True
@@ -362,7 +362,6 @@ def build_lung_masks(segmentation_path, output_path):
         
         combined_mask_nifti = nib.Nifti1Image(combined_mask, mask.affine)
         nib.save(combined_mask_nifti, output_path)
-
 
 
 def calculate_distance_from_mask(mask_path, scan_id, idx, row, col, nodule_type, nodule_diameter, nodule_lesion_id):
