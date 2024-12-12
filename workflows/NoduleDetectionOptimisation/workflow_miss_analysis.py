@@ -16,6 +16,9 @@ from pathlib import Path
 import scipy.stats as stats
 import sys
 import nibabel as nib
+from scipy.ndimage import distance_transform_edt
+import subprocess
+
 
 if os.path.basename(os.getcwd()).upper() == 'SOTAEVALUATIONNODULEDETECTION':
     sys.path.append('utilities')
@@ -28,6 +31,7 @@ from summit_utils import SummitScan, xyz2irc, XyzTuple
 from evaluation import noduleCADEvaluation
 import sys
 import os
+
 
 METADATA_COLUMNS = [
     'name',
@@ -57,9 +61,30 @@ def load_data(workspace_path, model, flavour, actionable):
 
     # Load the data
     if model == 'grt123':
+
+        if not Path(f'{workspace_path}/models/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_metadata..csv').exists():
+            subprocess.run(
+                [
+                    'scp', 
+                    f'jmccabe@little:/cluster/project2/SUMMIT/cache/sota/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_metadata.csv',
+                    f'{workspace_path}/models/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_metadata.csv'
+                ],
+                check=True
+            )
+
         annotations = pd.read_csv(
             f'{workspace_path}/models/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_metadata.csv',
             usecols=METADATA_COLUMNS)
+
+        if not Path(f'{workspace_path}/models/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_predictions.csv').exists():
+            subprocess.run(
+                [
+                    'scp', 
+                    f'jmccabe@little:/cluster/project2/SUMMIT/cache/sota/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_predictions.csv',
+                    f'{workspace_path}/models/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_predictions.csv'
+                ],
+                check=True
+            )
 
         results = (
             pd.read_csv(
@@ -90,6 +115,16 @@ def load_data(workspace_path, model, flavour, actionable):
             .rename(columns=recode)
         )
 
+        if not Path(f'{workspace_path}/models/detection/result/trained_summit/summit/{flavour}/result_{flavour}.json').exists():
+            subprocess.run(
+                [
+                    'scp', 
+                    f'jmccabe@little:/home/jmccabe/jobs/SOTAEvaluationNoduleDetection/models/detection/result/trained_summit/result_{flavour}.json',
+                    f'{workspace_path}/models/detection/result/trained_summit/summit/{flavour}/result_{flavour}.json'
+                ],
+                check=True
+            )
+
         prediction_json = json.load(open(f'{workspace_path}/models/detection/result/trained_summit/summit/{flavour}/result_{flavour}.json','r'))
         
         results_json, cnt = {}, 0
@@ -109,6 +144,17 @@ def load_data(workspace_path, model, flavour, actionable):
         print(results.head())
 
     elif model == 'ticnet':
+
+
+        if not Path(f'{workspace_path}/models/ticnet/annotations/summit/{flavour}/{flavour}_metadata.csv').exists():
+            subprocess.run(
+                [
+                    'scp', 
+                    f'jmccabe@little:/cluster/project2/SUMMIT/cache/sota/ticnet/annotations/summit/{flavour}/{flavour}_metadata.csv',
+                    f'{workspace_path}/models/ticnet/annotations/summit/{flavour}/{flavour}_metadata.csv'
+                ],
+                check=True
+            )
 
         annotations = pd.read_csv(
             f'{workspace_path}/models/ticnet/annotations/summit/{flavour}/{flavour}_metadata.csv',
@@ -317,7 +363,7 @@ def build_lung_masks(segmentation_path, output_path):
         combined_mask_nifti = nib.Nifti1Image(combined_mask, mask.affine)
         nib.save(combined_mask_nifti, output_path)
 
-from scipy.ndimage import distance_transform_edt
+
 
 def calculate_distance_from_mask(mask_path, scan_id, idx, row, col, nodule_type, nodule_diameter, nodule_lesion_id):
 
@@ -356,8 +402,6 @@ def calculate_distance_from_mask(mask_path, scan_id, idx, row, col, nodule_type,
     plt.savefig(f"results/images/{scan_id}_{nodule_lesion_id}_distance.png")
 
     return distance_to_lung
-
-
 
 class MissedNodulesFlow(FlowSpec):
     """
