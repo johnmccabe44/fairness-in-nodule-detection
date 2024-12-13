@@ -50,18 +50,7 @@ class NoduleDistanceFlow(FlowSpec):
             )
             .rename(columns=recode)
         )
-        # self.study_ids = self.data['participant_id'].unique()[:1]
-        self.study_ids = [
-            'summit-2225-stn',
-            'summit-2227-pjw',
-            'summit-2252-etc', 
-            'summit-2257-hrd',
-            'summit-2276-nzk',
-            'summit-2323-kha',
-            'summit-2336-xcb',
-            'summit-2344-yhh',
-            'summit-2354-cfc'
-        ]
+        self.study_ids = self.data['participant_id'].unique()
         self.next(self.process_scans, foreach='study_ids')
     
     @step
