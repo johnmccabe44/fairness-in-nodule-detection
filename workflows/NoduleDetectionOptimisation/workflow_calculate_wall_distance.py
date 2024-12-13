@@ -177,20 +177,6 @@ class NoduleDistanceFlow(FlowSpec):
 
         distance_to_lung = distance_transform[point]
 
-        print(f"Distance from the point {point} to the lung mask: {distance_to_lung} mm")    
-
-        fig, ax =  plt.subplots(1, 2, figsize=(15, 5))
-        ax[0].set_title(f"Binary Mask (Slice) - {distance_to_lung:.2f} mm")
-        ax[0].imshow(mask[:, :], cmap='gray')
-        ax[0].scatter(c, r, color='blue', label='Nodule Center', s=100)
-
-        ax[1].set_title("Distance Transform (Slice)")
-        ax[1].imshow(image[:, :], cmap='gray')
-        rect = plt.Rectangle((c - 5, r - 5), 10, 10, linewidth=1, edgecolor='r', facecolor='none')
-        ax[1].add_patch(rect)
-
-        plt.savefig(f"results/images/{pid}_{nid}_distance.png")
-
         return distance_to_lung
 
 if __name__ == "__main__":
