@@ -1,16 +1,18 @@
-from functools import partial
-from pathlib import Path
-import SimpleITK as sitk
-import tempfile
-import zipfile
-import pandas as pd
-import nibabel as nib
-from scipy.ndimage import distance_transform_edt
-import numpy as np
-import os
 import json
 import multiprocessing as mp
-from typing import Tuple, List, Dict, Any
+import os
+import tempfile
+import zipfile
+from functools import partial
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
+
+import nibabel as nib
+import numpy as np
+import pandas as pd
+import SimpleITK as sitk
+from scipy.ndimage import distance_transform_edt
+
 
 def xyz2irc(coord_xyz: Tuple[float, float, float], origin: Tuple[float, float, float], voxel_size: Tuple[float, float, float], orientation: np.ndarray = np.array([[1,0,0],[0,1,0],[0,0,1]])) -> Tuple[int, int, int]:
     """
@@ -125,10 +127,12 @@ def calculate_distance(args: Tuple[str, str, Tuple[int, int, int], np.ndarray, n
     point = (r, c)
     if mask_slice[point] == 0:
         distance_transform = distance_transform_edt(1 - mask_slice)
+        distance_to_lung = distance_transform[point] * -1
     else:
         distance_transform = distance_transform_edt(mask_slice)
+        distance_to_lung = distance_transform[point]
 
-    distance_to_lung = distance_transform[point]
+    
     return {'participant_id': pid, 'nodule_lesion_id': nid, 'distance': distance_to_lung}
 
 def process_scan(idx: int, study_ids: np.ndarray, data: pd.DataFrame, image_root: str, mask_root: str) -> List[Dict[str, Any]]:
