@@ -16,22 +16,21 @@ import sys
 import time
 from copy import deepcopy
 
+import monai
 import numpy as np
 import torch
 from generate_transforms import generate_detection_inference_transform
-
-import monai
 from monai.apps.detection.networks.retinanet_detector import RetinaNetDetector
 from monai.apps.detection.networks.retinanet_network import (
-    RetinaNet,
-    resnet_fpn_feature_extractor,
-)
+    RetinaNet, resnet_fpn_feature_extractor)
 from monai.apps.detection.transforms.dictionary import ClipBoxToImaged
-from monai.apps.detection.utils.anchor_utils import AnchorGeneratorWithAnchorShape
+from monai.apps.detection.utils.anchor_utils import \
+    AnchorGeneratorWithAnchorShape
 from monai.data import DataLoader, Dataset, load_decathlon_datalist
 from monai.data.utils import no_collation
 from monai.networks.nets import resnet
-from monai.transforms import Compose, DeleteItemsd, Invertd, ScaleIntensityRanged
+from monai.transforms import (Compose, DeleteItemsd, Invertd,
+                              ScaleIntensityRanged)
 
 
 def main():
@@ -153,7 +152,7 @@ def main():
                 inference_img_filenames = [
                     inference_data_i["image"].meta["filename_or_obj"] for inference_data_i in inference_data
                 ]
-                print(inference_img_filenames)
+
                 use_inferer = not all(
                     [inference_data_i["image"][0, ...].numel() < np.prod(patch_size) for inference_data_i in inference_data]
                 )
