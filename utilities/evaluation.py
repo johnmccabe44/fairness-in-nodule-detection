@@ -1,24 +1,24 @@
 
 import csv
+import math
+import os
+import shutil
+import sys
+import warnings
 from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
-import os
-import math
-import shutil
-import sys
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import sklearn.metrics as skl_metrics
 from matplotlib.pylab import f
+from matplotlib.ticker import (FixedFormatter, LogFormatter, ScalarFormatter,
+                               StrMethodFormatter)
 from sklearn.utils import resample
 # from sympy import ground_roots, intersection, use
 from tqdm import tqdm
-
-import matplotlib.pyplot as plt
-from matplotlib.ticker import ScalarFormatter,LogFormatter,StrMethodFormatter,FixedFormatter
-import sklearn.metrics as skl_metrics
-import numpy as np
-import pandas as pd
-
-import warnings
 
 warnings.filterwarnings("ignore")
 
@@ -319,9 +319,6 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
             noduleAnnots = allNodules[seriesuid]
         except KeyError:
             noduleAnnots = []
-
-        if seriesuid.find('2344') >= 0:
-            print("SeriesUID: %s, number of candidates: %d, number of nodule annotations: %d" % (seriesuid, len(candidates), len(noduleAnnots)))
 
         # - loop over the nodule annotations
         for noduleAnnot in noduleAnnots:
@@ -644,9 +641,12 @@ def noduleCADEvaluation(annotations_filename,annotations_excluded_filename,serie
 
     return (fps, sens, thresholds, fps_bs_itp, sens_bs_mean, sens_bs_lb, sens_bs_up, fps_itp, sens_itp)
 
-import numpy as np
-from sklearn.metrics import average_precision_score, precision_recall_curve, auc
 import random
+
+import numpy as np
+from sklearn.metrics import (auc, average_precision_score,
+                             precision_recall_curve)
+
 
 def iou(boxA, boxB):
     xA = max(boxA[0] - boxA[3]/2, boxB[0] - boxB[3]/2)
