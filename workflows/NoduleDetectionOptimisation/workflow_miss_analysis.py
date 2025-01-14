@@ -1,10 +1,12 @@
-from math import e
-from tempfile import TemporaryDirectory
-from metaflow import FlowSpec, step, Parameter, conda_base
-import numpy as np
 import os
-import pandas as pd
+import sys
+from math import e
 from pathlib import Path
+from tempfile import TemporaryDirectory
+
+import numpy as np
+import pandas as pd
+from metaflow import FlowSpec, Parameter, conda_base, step
 from scipy.ndimage import distance_transform_edt
 
 if os.path.basename(os.getcwd()).upper() == 'SOTAEVALUATIONNODULEDETECTION':
@@ -14,20 +16,11 @@ else:
     sys.path.append('../../utilities')
     sys.path.append('../../notebooks')
 
-from utils import (
-    load_data, 
-    get_thresholds, 
-    miss_anaysis_at_fpps, 
-    get_voxel_coords, 
-    display_nodules, 
-    build_lung_masks, 
-    calculate_distance_from_mask
-)
-
-from summit_utils import SummitScan, xyz2irc, XyzTuple
-from evaluation import noduleCADEvaluation
-import sys
 import os
+import sys
+
+from evaluation import noduleCADEvaluation
+from utils import get_thresholds, load_data, miss_anaysis_at_fpps
 
 
 def cleanup(s):
@@ -55,18 +48,6 @@ class MissedNodulesFlow(FlowSpec):
         help='Dataset flavour',
         default='optimisation'
     )
-    scan_path = Parameter(
-        'scan_path', 
-        type=str, 
-        help='Path to the scan data', 
-        default='/Users/john/Projects/SOTAEvaluationNoduleDetection/data/summit/scans'
-    )
-    segmentation_path = Parameter(
-        'segmentation_path', 
-        type=str, 
-        help='Path to the segmentation data', 
-        default='/Users/john/Projects/SOTAEvaluationNoduleDetection/data/summit/segmentations'
-    )
     workspace_path = Parameter(
         'workspace_path', 
         type=str, 
@@ -78,6 +59,7 @@ class MissedNodulesFlow(FlowSpec):
     def start(self):
     
         self.models = ['grt123', 'detection', 'ticnet']
+        # self.models = ['detection']
         self.next(self.get_missed_annotations, foreach='models')
 
     @step
@@ -94,7 +76,7 @@ class MissedNodulesFlow(FlowSpec):
         with TemporaryDirectory() as temp_dir:
             temp_dir_path = Path(temp_dir)
 
-            scans.to_csv(temp_dir_path / 'scans.csv', index=False)
+            np.savetxt(temp_dir_path / 'scans.csv', scans, delimiter=',', fmt='%s')
             annotations.to_csv(temp_dir_path / 'annotations.csv', index=False)
             annotations_excluded.to_csv(temp_dir_path / 'exclusions.csv', index=False)
             results.to_csv(temp_dir_path / 'predictions.csv', index=False)
