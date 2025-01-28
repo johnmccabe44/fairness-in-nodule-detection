@@ -18,15 +18,8 @@ import monai
 import torch
 from monai.data import DataLoader, Dataset, load_decathlon_datalist
 from monai.data.utils import no_collation
-from monai.transforms import (
-    Compose,
-    EnsureChannelFirstd,
-    EnsureTyped,
-    LoadImaged,
-    Orientationd,
-    SaveImaged,
-    Spacingd,
-)
+from monai.transforms import (Compose, EnsureChannelFirstd, EnsureTyped,
+                              LoadImaged, Orientationd, SaveImaged, Spacingd)
 
 
 def main():
@@ -85,7 +78,7 @@ def main():
     )
 
     # 2. prepare data
-    for data_list_key in ["training", "validation"]:
+    for data_list_key in ["training", "validation", "test"]:
         # create a data loader
         process_data = load_decathlon_datalist(
             args.data_list_file_path,
