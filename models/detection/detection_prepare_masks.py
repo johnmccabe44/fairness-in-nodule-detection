@@ -12,6 +12,7 @@
 import argparse
 import json
 import logging
+from pathlib import Path
 import sys
 
 import monai
@@ -59,10 +60,17 @@ class MultiBoxToMaskd(MapTransform):
             # Create a temporary binary mask for the current box
             box = np.round(box).astype(int)  # Ensure integer values
             x_min, y_min, z_min, x_max, y_max, z_max = box
-            mask[z_min:z_max, y_min:y_max, x_min:x_max] = label
+            mask[x_min:x_max, y_min:y_max, z_min:z_max] = label
 
+
+        # Convert mask to MetaTensor and attach the same meta as the reference image
+        mask = np.expand_dims(mask, axis=0)
+        mask = monai.data.MetaTensor(mask, meta=d[f"{self.box_ref_image_keys}"].meta)
         d[self.box_mask_keys] = mask
+
         return d
+
+
 
 def main():
     parser = argparse.ArgumentParser(description="LUNA16 Detection Image Resampling")
@@ -70,21 +78,21 @@ def main():
     parser.add_argument(
         "-d",
         "--data-base-dir",
-        default="/Users/john/Projects/SOTAEvaluationNoduleDetection/cache/sota/lsut/masks",
+        default="/home/jmccabe/Projects/SOTAEvaluationNoduleDetection/cache/sota/lsut/masks",
         help="directory of the data",
     )
 
     parser.add_argument(
         "-o",
         "--orig-data-base-dir",
-        default="/Users/john/Projects/SOTAEvaluationNoduleDetection/cache/sota/lsut/detection",
+        default="/home/jmccabe/Projects/SOTAEvaluationNoduleDetection/cache/sota/lsut/detection",
         help="directory of the original data",
     )
 
     parser.add_argument(
         "-l",
         "--data-list-file-path",
-        default="/Users/john/Projects/SOTAEvaluationNoduleDetection/models/detection/datasplits/lsut/box_mask_temp.json",
+        default="/home/jmccabe/Projects/SOTAEvaluationNoduleDetection/models/detection/datasplits/lsut/box_mask_temp.json",
         help="data list json file",
     )
 
@@ -94,7 +102,7 @@ def main():
     # resample images to args.spacing defined in args.config_file.
     process_transforms = Compose(
         [
-            LoadImaged(keys=["image"], meta_key_postfix="meta_dict"),
+            LoadImaged(keys=["image"]),
             EnsureChannelFirstd(keys=["image"]),
             EnsureTyped(keys=["image", "box"], dtype=torch.float32),
             EnsureTyped(keys=["image"], dtype=torch.long),
@@ -129,12 +137,10 @@ def main():
     # saved images to Nifti
     post_transforms = Compose(
         [
-            EnsureChannelFirstd(keys="box_mask"),
             SaveImaged(
                 keys="box_mask",
-                meta_keys="image_meta_dict",  # Use metadata for naming
                 output_dir=args.data_base_dir,
-                output_postfix="_box_mask",
+                output_postfix="box_mask",
                 resample=False,
             ),
         ]
@@ -165,7 +171,12 @@ def main():
         print("-" * 10)
         for batch_data in process_loader:
             for batch_data_i in batch_data:
+
+                for box in batch_data_i["box"]:
+                    print(box)
+
                 batch_data_i = post_transforms(batch_data_i)
+
 
 
 if __name__ == "__main__":
