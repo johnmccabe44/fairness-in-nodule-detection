@@ -1,19 +1,19 @@
 import json
-from operator import is_
-import re
-import comm
-from cv2 import mean, norm, normalize
-import numpy as np
-import pandas as pd
-from pathlib import Path
 import os
+import re
+import subprocess
 import sys
 import warnings
+from operator import is_
+from pathlib import Path
 from tempfile import TemporaryDirectory
+
+import comm
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from cv2 import mean, norm, normalize
 from matplotlib.ticker import FixedFormatter
-import matplotlib.pyplot as plt
-import subprocess
 from pyparsing import col
 from scipy import stats
 from scipy.stats import f_oneway
@@ -25,9 +25,9 @@ sys.path.append('../../models/grt123')
 sys.path.append('../../models/grt123/training')
 sys.path.append('../../models/grt123/preprocessing/')
 
+from evaluation import noduleCADEvaluation
 # from layers import nms,iou
 from summit_utils import *
-from evaluation import noduleCADEvaluation
 
 workspace_path = Path(os.getcwd()).parent.parent
 
@@ -45,7 +45,7 @@ def calculate_cpm(file_path):
     
 
 
-def caluclate_cpm_from_bootstrapping(file_path):
+def calculate_cpm_from_bootstrapping(file_path):
     metrics = pd.read_csv(file_path)
 
     fps = metrics['FPrate']
@@ -126,7 +126,7 @@ def protected_group_analysis(protected_group, scan_metadata, annotations, exclus
                 outputDir=output_path / cat,
             )
 
-            summary_dict[cat], _ = caluclate_cpm_from_bootstrapping(output_path / cat / 'froc_predictions_bootstrapping.csv')
+            summary_dict[cat], _ = calculate_cpm_from_bootstrapping(output_path / cat / 'froc_predictions_bootstrapping.csv')
             summary_dict[cat].set_index('fps', inplace=True)
 
             show_metrics(output_path / cat / 'CADAnalysis.txt')
