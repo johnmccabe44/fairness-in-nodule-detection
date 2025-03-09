@@ -4,17 +4,16 @@ import os
 import sys
 import traceback
 import warnings
+
 import numpy as np
 import pandas as pd
-import torch
 import setproctitle
-from config import net_config, data_config, train_config
+import torch
+from config import data_config, net_config, train_config
 from dataset.bbox_reader import BboxReader
-from utils.util import Logger
 from evaluationScript.noduleCADEvaluationLUNA16 import noduleCADEvaluation
 from net.main_net import build_model
-
-
+from utils.util import Logger
 
 this_module = sys.modules[__name__]
 warnings.filterwarnings("ignore")
@@ -167,6 +166,7 @@ def eval(net, dataset, annotations_path=None, annotations_excluded_path=None, sa
                 ensemble_res.append(np.concatenate([names, ensembles], axis=1))      
 
         except Exception as e:
+            print(f'Error in scan {i} pid {pid}')
             traceback.print_exc()
         finally:
             # Clear gpu memory
