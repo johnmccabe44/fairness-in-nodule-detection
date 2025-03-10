@@ -1,13 +1,13 @@
 import argparse
 import csv
 import json
-import shutil
-import numpy as np
 import os
-import pandas as pd
-from pathlib import Path
+import shutil
 import sys
+from pathlib import Path
 
+import numpy as np
+import pandas as pd
 from tqdm import tqdm
 
 
