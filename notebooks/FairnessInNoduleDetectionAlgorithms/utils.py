@@ -20,13 +20,12 @@ from scipy.stats import f_oneway
 
 warnings.simplefilter('ignore')
 
-sys.path.append('../../utilities')
-sys.path.append('../../models/grt123')
-sys.path.append('../../models/grt123/training')
-sys.path.append('../../models/grt123/preprocessing/')
+sys.path.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/utilities')
+sys.path.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/models/grt123')
+sys.path.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/models/grt123/training')
+sys.path.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/models/grt123/preprocessing/')
 
 from evaluation import noduleCADEvaluation
-# from layers import nms,iou
 from summit_utils import *
 
 workspace_path = Path(os.getcwd()).parent.parent
