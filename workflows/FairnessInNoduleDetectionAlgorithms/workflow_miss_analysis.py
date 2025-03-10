@@ -1,49 +1,23 @@
-import datetime
-import json
-import logging
-from math import e
-from tempfile import TemporaryDirectory
-from matplotlib import pyplot as plt
-from matplotlib.ticker import FixedFormatter
-import numpy as np
-from metaflow import FlowSpec, step, IncludeFile, Parameter, conda_base
-import numpy as np
 import os
-import pandas as pd
-from pathlib import Path
-import scipy.stats as stats
 import sys
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
-if os.path.basename(os.getcwd()).upper() == 'SOTAEVALUATIONNODULEDETECTION':
-    sys.path.append('utilities')
-    sys.path.append('notebooks')
-else:
-    sys.path.append('../utilities')
-    sys.path.append('../notebooks')
+import numpy as np
+import pandas as pd
+import scipy.stats as stats
+from evaluation import noduleCADEvaluation
+from FairnessInNoduleDetectionAlgorithms.utils import (get_thresholds,
+                                                       miss_anaysis_at_fpps)
+from metaflow import FlowSpec, Parameter
 
-from FairnessInNoduleDetectionAlgorithms.utils import (
-    get_thresholds, 
-    miss_anaysis_at_fpps
-)
+sys.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/utilities')
 
 from summit_utils import *
-from evaluation import noduleCADEvaluation
-import sys
-import os
+from utils import load_data
 
-METADATA_COLUMNS = [
-    'name',
-    'col',
-    'row',
-    'index',
-    'diameter',
-    'management_plan',
-    'gender',
-    'ethnic_group',
-    'nodule_lesion_id',
-    'nodule_type',
-    'nodule_diameter_mm'
-]
+from models.ticnet import dataset
+
 
 def cleanup(s):
     if s == 'CALCIFIED':
@@ -60,16 +34,14 @@ class MissedNodulesFlow(FlowSpec):
 
     flavour = Parameter('flavour', help='Flavour to evaluate', default='test_balanced')
     actionable = Parameter('actionable', type=bool, help='Only include actionable cases', default=True)
-
-    if os.path.basename(os.getcwd()).upper() == 'SOTAEVALUATIONNODULEDETECTION':
-        workspace_path = Path(os.getcwd()).as_posix()
-    else:
-        workspace_path = Path(os.getcwd()).parent.as_posix()
+    dataset = Parameter('dataset', help='Dataset to evaluate', default='lsut')
+    workspace_path = '/Users/john/Projects/SOTAEvaluationNoduleDetection'
     
     @step
     def start(self):
     
-        self.models = ['grt123', 'detection', 'ticnet']
+        # self.models = ['grt123', 'detection', 'ticnet']
+        self.models = ['grt123', 'detection']
         self.next(self.get_missed_annotations, foreach='models')
 
     @step
@@ -79,87 +51,18 @@ class MissedNodulesFlow(FlowSpec):
 
         print(f'Processing {self.model} model')
 
-        # Load the data
-        if self.model == 'grt123':
-            annotations = pd.read_csv(
-                f'{self.workspace_path}/models/grt123/bbox_result/trained_summit/summit/{self.flavour}/{self.flavour}_metadata.csv',
-                usecols=METADATA_COLUMNS
-            )
-
-            predictions = (
-                pd.read_csv(
-                    f'{self.workspace_path}/models/grt123/bbox_result/trained_summit/summit/{self.flavour}/{self.flavour}_predictions.csv',
-                    usecols=['name', 'col', 'row', 'index', 'diameter', 'threshold']
-                )
-                .rename(columns={'threshold': 'threshold_original'})
-                .assign(threshold=lambda x: 1 / (1 + np.exp(-x['threshold_original'])))
-            )
-
-        elif self.model == 'detection':
-            annotations = pd.read_csv(
-                f'{self.workspace_path}/models/detection/result/trained_summit/summit/{self.flavour}/annotations.csv',
-                usecols=METADATA_COLUMNS
-            )
-            
-            predictions = pd.read_csv(
-                f'{self.workspace_path}/models/detection/result/trained_summit/summit/{self.flavour}/predictions.csv',
-                usecols=['name', 'col', 'row', 'index', 'diameter', 'threshold']
-            )
-
-        elif self.model == 'ticnet':
-
-            _annotations = (
-                pd.read_csv(f'/Users/john/Projects/TiCNet-main/annotations/summit/{self.flavour}/test_metadata.csv').rename(columns={
-                    'seriesuid' : 'name',
-                    'coordX' : 'row',
-                    'coordY' : 'col',
-                    'coordZ' : 'index',
-                    'diameter_mm' : 'diameter',
-                    'probability' : 'threshold'
-                })
-                .assign(name_counter=lambda df: df.groupby('name').cumcount() + 1)
-            )
-
-            _metadata = (
-                pd.read_csv(f'/Users/john/Projects/SOTAEvaluationNoduleDetection/metadata/summit/{self.flavour}/test_metadata.csv')
-                .assign(name=lambda df: df.participant_id + '_Y0_BASELINE_A')
-                .assign(name_counter=lambda df: df.groupby('name').cumcount() + 1)
-            )
-
-            annotations = pd.merge(_metadata, _annotations, on=['name', 'name_counter'], how='outer')[METADATA_COLUMNS]
-
-            assert annotations.shape[0] == _metadata.shape[0], 'Mismatch in number of annotations'
-
-            predictions = pd.read_csv(f'/Users/john/Projects/TiCNet-main/results/summit/{self.flavour}/res/110/FROC/submission_rpn.csv').rename(
-                columns={
-                    'seriesuid' : 'name',
-                    'coordX' : 'row',
-                    'coordY' : 'col',
-                    'coordZ' : 'index',
-                    'diameter_mm' : 'diameter',
-                    'probability' : 'threshold'
-                }
-            )
-
-        scan_metadata = pd.read_csv(f'{self.workspace_path}/metadata/summit/{self.flavour}/test_scans_metadata.csv',
-                                        usecols=['Y0_PARTICIPANT_DETAILS_main_participant_id', 'participant_details_gender','lung_health_check_demographics_race_ethnicgroup']).rename(
-                                        columns={'Y0_PARTICIPANT_DETAILS_main_participant_id': 'StudyId', 'participant_details_gender' : 'gender', 'lung_health_check_demographics_race_ethnicgroup' : 'ethnic_group'}).assign(
-                                        Name=lambda x: x['StudyId'] + '_Y0_BASELINE_A')
-        training_data_path = f'{self.workspace_path}/metadata/summit/{self.flavour}/training_metadata.csv'
+        annotations, predictions, scan_metadata, annotations_excluded = load_data(
+            self.workspace_path, self.model, self.dataset, self.flavour, self.actionable
+        )
 
         # Reduce the annotations to only actionable cases
+        diameter_var = 'nodule_diameter_mm' if self.dataset == 'summit' else 'diameter_mm'
+
         annotations['diameter_cats'] = pd.cut(
-            annotations['nodule_diameter_mm'], 
+            annotations[diameter_var], 
             bins=[0, 6, 8, 30, 40, 999], 
             labels=['0-6mm', '6-8mm', '8-30mm', '30-40mm', '40+mm']
         )
-
-        if self.actionable:
-            annotations = annotations[annotations['management_plan'].isin(['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1'])]
-            annotations_excluded = annotations[annotations['management_plan']=='RANDOMISATION_AT_YEAR_1']
-        else:
-            annotations = annotations
-            annotations_excluded = annotations.drop(annotations.index)
 
         scans = scan_metadata['Name']
 
@@ -212,4 +115,4 @@ class MissedNodulesFlow(FlowSpec):
 
 
 if __name__ == '__main__':
-    MissedNodulesFlow()
+    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()

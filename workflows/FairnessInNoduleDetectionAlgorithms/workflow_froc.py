@@ -1,162 +1,75 @@
 import datetime
 import json
 import logging
+import os
+import sys
 from math import e
+from pathlib import Path
 from tempfile import TemporaryDirectory
+
+import numpy as np
+import pandas as pd
+import scipy.stats as stats
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FixedFormatter
-import numpy as np
-from metaflow import FlowSpec, step, IncludeFile, Parameter, conda_base
-import numpy as np
+from metaflow import FlowSpec, IncludeFile, Parameter, conda_base, step
+
+sys.path.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/utilities')
+sys.path.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/notebooks')
+
 import os
-import pandas as pd
-from pathlib import Path
-import scipy.stats as stats
 import sys
 
-
-
-if os.path.basename(os.getcwd()).upper() == 'SOTAEVALUATIONNODULEDETECTION':
-    sys.path.append('utilities')
-    sys.path.append('notebooks')
-else:
-    sys.path.append('../utilities')
-    sys.path.append('../notebooks')
-
-from FairnessInNoduleDetectionAlgorithms.utils import caluclate_cpm_from_bootstrapping, display_plots_with_error_bars
-from summit_utils import *
 from evaluation import noduleCADEvaluation
-import sys
-import os
+from FairnessInNoduleDetectionAlgorithms.utils import (
+    calculate_cpm_from_bootstrapping, display_plots_with_error_bars)
+from summit_utils import *
+from utils import load_data
 
-METADATA_COLUMNS = [
-    'name',
-    'col',
-    'row',
-    'index',
-    'diameter',
-    'management_plan',
-    'gender',
-    'ethnic_group',
-    'nodule_lesion_id',
-    'nodule_type'
-]
 
 class FROCFlow(FlowSpec):
     """
     Calculate the free response operating characteristic (FROC) scores for each demographic group
     """
 
-    model = Parameter('model', help='Model to evaluate')
+    dataset = Parameter('dataset', help='Dataset to evaluate', default='lsut')
+    model = Parameter('model', help='Model to evaluate', default='ticnet')
     flavour = Parameter('flavour', help='Flavour to evaluate', default='test_balanced')
-    actionable = Parameter('actionable', type=bool, help='Only include actionable cases')
+    actionable = Parameter('actionable', type=bool, help='Only include actionable cases', default=True)
     n_bootstraps = Parameter('bootstraps', help='Number of bootstraps to perform', default=1000)
 
-    if os.path.basename(os.getcwd()).upper() == 'SOTAEVALUATIONNODULEDETECTION':
-        workspace_path = Path(os.getcwd()).as_posix()
-    else:
-        workspace_path = Path(os.getcwd()).parent.as_posix()
+    workspace_path = '/Users/john/Projects/SOTAEvaluationNoduleDetection'
     
-
-
     @step
     def start(self):
-        
 
-        print(self.model, self.flavour, self.actionable, self.exclude_outliers)
+        print(self.model, self.flavour, self.actionable)
 
-        self.output_dir = f'results/summit/{self.model}/{self.flavour}/{"Actionable" if self.actionable else "All"}/{"Excluded" if self.exclude_outliers else "Included"}/FROC'
+        self.output_dir = f'results/{self.dataset}/{self.model}/{self.flavour}/{"Actionable" if self.actionable else "All"}/FROC'
 
-        # Load the data
-        if self.model == 'grt123':
-            annotations = pd.read_csv(
-                f'{self.workspace_path}/models/grt123/bbox_result/trained_summit/summit/{self.flavour}/{self.flavour}_metadata.csv',
-                usecols=METADATA_COLUMNS
-            )
-
-            self.results = (
-                pd.read_csv(
-                    f'{self.workspace_path}/models/grt123/bbox_result/trained_summit/summit/{self.flavour}/{self.flavour}_predictions.csv',
-                    usecols=['name', 'col', 'row', 'index', 'diameter', 'threshold']
-                )
-                .rename(columns={'threshold': 'threshold_original'})
-                .assign(threshold=lambda x: 1 / (1 + np.exp(-x['threshold_original'])))
-            )
-            
-        elif self.model == 'detection':
-            annotations = pd.read_csv(
-                f'{self.workspace_path}/models/detection/result/trained_summit/summit/{self.flavour}/annotations.csv',
-                usecols=METADATA_COLUMNS
-            )
-            
-            self.results = pd.read_csv(
-                f'{self.workspace_path}/models/detection/result/trained_summit/summit/{self.flavour}/predictions.csv',
-                usecols=['name', 'col', 'row', 'index', 'diameter', 'threshold']
-            )
-
-        elif self.model == 'ticnet':
-
-            _annotations = (
-                pd.read_csv(f'{self.workspace_path}/../TiCNet-main/annotations/summit/{self.flavour}/test_metadata.csv').rename(columns={
-                    'seriesuid' : 'name',
-                    'coordX' : 'row',
-                    'coordY' : 'col',
-                    'coordZ' : 'index',
-                    'diameter_mm' : 'diameter',
-                    'probability' : 'threshold'
-                })
-                .assign(name_counter=lambda df: df.groupby('name').cumcount() + 1)
-            )
-
-            _metadata = (
-                pd.read_csv(f'{self.workspace_path}/metadata/summit/{self.flavour}/test_metadata.csv')
-                .assign(name=lambda df: df.participant_id + '_Y0_BASELINE_A')
-                .assign(name_counter=lambda df: df.groupby('name').cumcount() + 1)
-            )
-
-            annotations = pd.merge(_metadata, _annotations, on=['name', 'name_counter'], how='outer')[METADATA_COLUMNS]
-
-            assert annotations.shape[0] == _metadata.shape[0], 'Mismatch in number of annotations'
-
-            self.results = pd.read_csv(f'{self.workspace_path}/../TiCNet-main/results/summit/{self.flavour}/res/110/FROC/submission_rpn.csv').rename(
-                columns={
-                    'seriesuid' : 'name',
-                    'coordX' : 'row',
-                    'coordY' : 'col',
-                    'coordZ' : 'index',
-                    'diameter_mm' : 'diameter',
-                    'probability' : 'threshold'
-                }
-            )
-
-
-        self.scan_metadata = pd.read_csv(f'{self.workspace_path}/metadata/summit/{self.flavour}/test_scans_metadata.csv',
-                                        usecols=['Y0_PARTICIPANT_DETAILS_main_participant_id', 'participant_details_gender','lung_health_check_demographics_race_ethnicgroup']).rename(
-                                        columns={'Y0_PARTICIPANT_DETAILS_main_participant_id': 'StudyId', 'participant_details_gender' : 'gender', 'lung_health_check_demographics_race_ethnicgroup' : 'ethnic_group'}).assign(
-                                        Name=lambda x: x['StudyId'] + '_Y0_BASELINE_A')
-
-
-        # Reduce the annotations to only actionable cases
-        if self.actionable:
-            self.annotations = annotations[annotations['management_plan'].isin(['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1'])]
-            self.annotations_excluded = annotations[annotations['management_plan']=='RANDOMISATION_AT_YEAR_1']
-        else:
-            self.annotations = annotations
-            self.annotations_excluded = annotations.drop(annotations.index)
-
+        self.annotations, self.results, self.scan_metadata, self.annotations_excluded = load_data(
+            self.workspace_path, self.model, self.dataset, self.flavour, self.actionable
+        )
 
         # Define the subsequent slices to be performed
-        gender_groups = [('gender','MALE'), ('gender', 'FEMALE')]
-        ethnic_groups = [('ethnic_group', 'Asian or Asian British'),('ethnic_group','Black'),('ethnic_group','White')]
+        gender_groups = {
+            'summit' : [('gender','MALE'), ('gender', 'FEMALE')],
+            'lsut' : [('gender','Male'), ('gender', 'Female')],
+        }
+
+        ethnic_groups = {
+            'summit' : [('ethnic_group', 'Asian or Asian British'),('ethnic_group','Black'),('ethnic_group','White')],
+            'lsut' : [('ethnic_group', 'Other'),('ethnic_group','White')],
+        }
 
         if self.flavour == 'test_balanced':
-            self.demographic_groups = [('all', 'all')] + gender_groups + ethnic_groups
+            self.demographic_groups = [('all', 'all')] + gender_groups[self.dataset] + ethnic_groups[self.dataset]
 
         elif self.flavour == 'male_only':
-            self.demographic_groups = [('all', 'all')] + ethnic_groups
+            self.demographic_groups = [('all', 'all')] + ethnic_groups[self.dataset]
 
         elif self.flavour == 'white_only':
-            self.demographic_groups = [('all', 'all')] + gender_groups
+            self.demographic_groups = [('all', 'all')] + gender_groups[self.dataset]
 
         self.next(self.calculate_froc, foreach='demographic_groups')
 
@@ -199,7 +112,7 @@ class FROCFlow(FlowSpec):
 
         self.cat = cat
         self.val = val
-        self.cpm_data, self.cpm_summary = caluclate_cpm_from_bootstrapping(output_path / 'froc_predictions_bootstrapping.csv')
+        self.cpm_data, self.cpm_summary = calculate_cpm_from_bootstrapping(output_path / 'froc_predictions_bootstrapping.csv')
         self.cpm_data.set_index('fps', inplace=True)
 
         self.boot_metrics = (
@@ -225,9 +138,13 @@ class FROCFlow(FlowSpec):
         self.cpm_data = {inp.val : inp.cpm_data for inp in inputs}
         self.cpm_summary = {inp.val : inp.cpm_summary for inp in inputs}
 
-        pd.DataFrame.from_dict(self.cpm_summary, orient='index').reindex(
-            ['MALE','FEMALE','Asian or Asian British','Black','White','all']
-        ).to_csv(f'{self.output_dir}/cpm_summary.csv')
+        if self.dataset == 'summit':
+            order_by = ['MALE','FEMALE','Asian or Asian British','Black','White','all']
+            
+        elif self.dataset == 'lsut':
+            order_by = ['Male', 'Female', 'White', 'Other', 'all']
+
+        pd.DataFrame.from_dict(self.cpm_summary, orient='index').reindex(order_by).to_csv(f'{self.output_dir}/cpm_summary.csv')
 
         self.boot_metrics = {inp.val : inp.boot_metrics for inp in inputs}
         self.bootstap_results = {inp.val : inp.bootstap_results for inp in inputs}
@@ -244,20 +161,31 @@ class FROCFlow(FlowSpec):
         self.boot_metrics = self.boot_metrics
         self.bootstap_results = self.bootstap_results
 
+        groupings = {
+            'summit' : {
+                'gender' : ['MALE','FEMALE'],
+                'ethnic_group' : ['Asian or Asian British','Black','White']
+            },
+            'lsut' : {
+                'gender' : ['Male', 'Female'],
+                'ethnic_group' : ['White','Other']
+            }
+        }
+
         # Define charts to be generated
         if self.flavour == 'test_balanced':            
             self.demographic_groups = [
-                ('gender' , ['MALE','FEMALE']),
-                ('ethnic_group' , ['Asian or Asian British','Black','White'])
+                ('gender' , groupings[self.dataset]['gender']),
+                ('ethnic_group' , groupings[self.dataset]['ethnic_group'])
             ]
         elif self.flavour == 'male_only':
             self.demographic_groups = [
-                ('ethnic_group' , ['Asian or Asian British','Black','White'])
+                ('ethnic_group' , groupings[self.dataset]['ethnic_group'])
             ]
 
         elif self.flavour == 'white_only':
             self.demographic_groups = [
-                ('gender' , ['MALE','FEMALE'])
+                ('gender' , groupings[self.dataset]['gender'])
             ]
 
         self.next(self.chart, foreach='demographic_groups')
