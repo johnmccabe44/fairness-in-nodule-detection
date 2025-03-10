@@ -8,8 +8,14 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from metaflow import FlowSpec, Parameter, conda_base, step
 
-sys.path.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/utilities')
-sys.path.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/notebooks')
+if sys.platform == "darwin":
+    sys.path.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/utilities')
+    sys.path.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/notebooks')
+elif sys.platform == "linux":
+    sys.path.append('/home/jmccabe/Projects/SOTAEvaluationNoduleDetection/utilities')
+    sys.path.append('/home/jmccabe/Projects/SOTAEvaluationNoduleDetection/notebooks')
+else:
+    raise EnvironmentError("Unsupported platform")
 
 from evaluation import noduleCADEvaluation
 from FairnessInNoduleDetectionAlgorithms.utils import (get_thresholds,
@@ -31,30 +37,32 @@ class NoduleCharacteristicsFlow(FlowSpec):
     Calculate the free response operating characteristic (FROC) scores for each demographic group
     """
 
-    model = Parameter('model', help='Model to evaluate', default='grt123')
+    model = Parameter('model', help='Model to evaluate', default='ticnet')
     flavour = Parameter('flavour', help='Flavour to evaluate', default='test_balanced')
-    actionable = Parameter('actionable', type=bool, help='Only include actionable cases', default=False)
-    dataset = Parameter('dataset', help='Dataset to evaluate', default='summit')
+    actionable = Parameter('actionable', type=bool, help='Only include actionable cases', default=True)
+    dataset = Parameter('dataset', help='Dataset to evaluate', default='lsut')
     n_bootstraps = Parameter('bootstraps', help='Number of bootstraps to perform', default=1000)
 
-    workspace_path = '/Users/john/Projects/SOTAEvaluationNoduleDetection'
+    if sys.platform == "darwin":
+        workspace_path = '/Users/john/Projects/SOTAEvaluationNoduleDetection'
+    elif sys.platform == "linux":
+        workspace_path = '/home/jmccabe/Projects/SOTAEvaluationNoduleDetection'
+    
     
     @step
     def start(self):
         
-        self.output_dir = f'results/summit/{self.model}/{self.flavour}/{"Actionable" if self.actionable else "All"}/FROC'
+        self.output_dir = f'{self.workspace_path}/workflows/FairnessInNoduleDetectionAlgorithms/results/{self.dataset}/{self.model}/{self.flavour}/{"Actionable" if self.actionable else "All"}/FROC'
 
-        annotations, self.results, self.scan_metadata, self.annotations_excluded = load_data(
+        self.annotations, self.results, self.scan_metadata, self.annotations_excluded = load_data(
             self.workspace_path, self.model, self.dataset, self.flavour, self.actionable
         )
 
         self.training_data_path = f'{self.workspace_path}/metadata/summit/{self.flavour}/training_metadata.csv'
 
-
         # Reduce the annotations to only actionable cases
-        diameter_var = 'nodule_diameter_mm' if self.dataset == 'summit' else 'diameter_mm'
-        annotations['diameter_cats'] = pd.cut(
-            annotations[diameter_var], 
+        self.annotations['diameter_cats'] = pd.cut(
+            self.annotations['nodule_diameter_mm'], 
             bins=[0, 6, 8, 30, 40, 999], 
             labels=['0-6mm', '6-8mm', '8-30mm', '30-40mm', '40+mm']
         )

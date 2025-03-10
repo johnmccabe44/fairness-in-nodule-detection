@@ -14,8 +14,17 @@ from matplotlib import pyplot as plt
 from matplotlib.ticker import FixedFormatter
 from metaflow import FlowSpec, IncludeFile, Parameter, conda_base, step
 
-sys.path.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/utilities')
-sys.path.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/notebooks')
+
+if sys.platform == "darwin":
+    sys.path.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/utilities')
+    sys.path.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/notebooks')
+elif sys.platform == "linux":
+    sys.path.append('/home/jmccabe/Projects/SOTAEvaluationNoduleDetection/utilities')
+    sys.path.append('/home/jmccabe/Projects/SOTAEvaluationNoduleDetection/notebooks')
+else:
+    raise EnvironmentError("Unsupported platform")
+
+
 
 import os
 import sys
@@ -33,19 +42,22 @@ class FROCFlow(FlowSpec):
     """
 
     dataset = Parameter('dataset', help='Dataset to evaluate', default='lsut')
-    model = Parameter('model', help='Model to evaluate', default='ticnet')
+    model = Parameter('model', help='Model to evaluate', default='grt123')
     flavour = Parameter('flavour', help='Flavour to evaluate', default='test_balanced')
     actionable = Parameter('actionable', type=bool, help='Only include actionable cases', default=True)
     n_bootstraps = Parameter('bootstraps', help='Number of bootstraps to perform', default=1000)
 
-    workspace_path = '/Users/john/Projects/SOTAEvaluationNoduleDetection'
+    if sys.platform == "darwin":
+        workspace_path = '/Users/john/Projects/SOTAEvaluationNoduleDetection'
+    elif sys.platform == "linux":
+        workspace_path = '/home/jmccabe/Projects/SOTAEvaluationNoduleDetection'
     
     @step
     def start(self):
 
         print(self.model, self.flavour, self.actionable)
 
-        self.output_dir = f'results/{self.dataset}/{self.model}/{self.flavour}/{"Actionable" if self.actionable else "All"}/FROC'
+        self.output_dir = f'{self.workspace_path}/workflows/FairnessInNoduleDetectionAlgorithms/results/{self.dataset}/{self.model}/{self.flavour}/{"Actionable" if self.actionable else "All"}/FROC'
 
         self.annotations, self.results, self.scan_metadata, self.annotations_excluded = load_data(
             self.workspace_path, self.model, self.dataset, self.flavour, self.actionable

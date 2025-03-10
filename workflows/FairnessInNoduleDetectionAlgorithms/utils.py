@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 from cv2 import threshold
-
+import json
+from pathlib import Path
 
 def convert_to_csv_from_json(json_file):
     with open(json_file, 'r') as f:
@@ -26,13 +27,13 @@ def convert_to_csv_from_json(json_file):
      
 def is_actionable(row):
     
-    if row['Nod_type'] == 'SN' and row['diameter_mm'] >= 6:
+    if row['Nod_type'] == 'SN' and row['nodule_diameter_mm'] >= 6:
         return True
     
-    elif row['Nod_type'] == 'PSN' and row['diameter_mm'] >= 8:
+    elif row['Nod_type'] == 'PSN' and row['nodule_diameter_mm'] >= 8:
         return True
     
-    elif row['Nod_type'] == 'pGGN' and row['diameter_mm'] >= 10:
+    elif row['Nod_type'] == 'pGGN' and row['nodule_diameter_mm'] >= 10:
         return True
     
     else:
@@ -178,11 +179,11 @@ def load_data(workspace_path, model, dataset, flavour, actionable):
         if model == 'grt123':
             annotations = (
                 pd.read_csv(
-                    f'{workspace_path}/models/grt123/bbox_result/trained_summit/lsut/{flavour}/lsut_{flavour}_metadata.csv',
-                    usecols=['name', 'col', 'row', 'index', 'diameter', 'diameter_mm', 'Nod_type']
+                    f'{workspace_path}/models/grt123/bbox_result/trained_summit/lsut/{flavour}/lsut_{flavour}_metadata.csv'
                 )
                 .assign(nodule_type=lambda df: df['Nod_type'].map(lsut_nodule_type_mapping))
                 .assign(actionable=lambda df: df.apply(lambda row: is_actionable(row), axis=1))
+                .filter(['name', 'col', 'row', 'index', 'diameter', 'nodule_diameter_mm', 'nodule_type', 'actionable'])
             )
 
             results = (
@@ -201,9 +202,11 @@ def load_data(workspace_path, model, dataset, flavour, actionable):
                     'scan_id' : 'name',
                     'nodule_x_coordinate' : 'row',
                     'nodule_y_coordinate' : 'col',
-                    'nodule_z_coordinate' : 'index',
-                    'nodule_diameter_mm' : 'diameter',                        
+                    'nodule_z_coordinate' : 'index'                                          
                 })
+                .assign(diameter=lambda df: df['nodule_diameter_mm'])
+                .assign(nodule_type=lambda df: df['Nod_type'].map(lsut_nodule_type_mapping))
+                .assign(actionable=lambda df: df.apply(lambda row: is_actionable(row), axis=1))
                 .filter([
                     'name',
                     'row',
@@ -211,6 +214,7 @@ def load_data(workspace_path, model, dataset, flavour, actionable):
                     'index',
                     'diameter',
                     'nodule_type',
+                    'nodule_diameter_mm',
                     'actionable'
                 ])
             )
@@ -234,6 +238,8 @@ def load_data(workspace_path, model, dataset, flavour, actionable):
             _metadata = (
                 pd.read_csv(f'{workspace_path}/metadata/lsut/tranche1_metadata.csv')
                 .rename(columns={'scan_id' : 'name'})
+                .assign(nodule_type=lambda df: df['Nod_type'].map(lsut_nodule_type_mapping))
+                .assign(actionable=lambda df: df.apply(lambda row: is_actionable(row), axis=1))
                 .assign(name_counter=lambda df: df.groupby('name').cumcount() + 1)
             )
 
@@ -245,6 +251,7 @@ def load_data(workspace_path, model, dataset, flavour, actionable):
                     'row',
                     'index',
                     'diameter',
+                    'nodule_diameter_mm',
                     'nodule_type',
                     'actionable'
                 ])
