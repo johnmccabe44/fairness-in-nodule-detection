@@ -1,7 +1,8 @@
 import os
+import random
+
 import numpy as np
 import torch
-import random
 
 # Set seed
 SEED = 2021
@@ -125,7 +126,7 @@ train_config = {
     'weight_decay': 1e-4,
 
     'epochs': 120,
-    'epoch_save': 1,
+    'epoch_save': 10,
     'epoch_rcnn': 65,
     'num_workers': 8,
 
