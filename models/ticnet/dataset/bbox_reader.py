@@ -24,7 +24,7 @@ class BboxReader(Dataset):
         self.set_name = set_name
 
         labels = []
-        if set_name.endswith('.csv'):
+        if set_name.endswith('.csv') or set_name.endswith('.txt'):
             self.filenames = np.genfromtxt(set_name, dtype=str)
         elif set_name.endswith('.npy'):
             self.filenames = np.load(set_name)
