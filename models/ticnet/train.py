@@ -5,19 +5,19 @@ import sys
 import time
 import traceback
 import warnings
-import setproctitle
+
 import numpy as np
+import setproctitle
 import torch
-from torch.autograd import Variable
-from torch.utils.data import DataLoader, ConcatDataset
-from torch.utils.tensorboard import SummaryWriter
-from tqdm import tqdm
-from config import data_config, train_config, net_config
+from config import data_config, net_config, train_config
 from dataset.bbox_reader import BboxReader
 from dataset.collate import train_collate
-from utils.util import Logger
 from net.main_net import build_model
-
+from torch.autograd import Variable
+from torch.utils.data import ConcatDataset, DataLoader
+from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
+from utils.util import Logger
 
 warnings.filterwarnings("ignore")
 # setup cuda device
