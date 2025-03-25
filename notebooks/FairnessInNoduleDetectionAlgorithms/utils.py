@@ -1,17 +1,15 @@
 import json
 import os
-import re
 import subprocess
 import sys
 import warnings
-from operator import is_
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-import comm
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from click import group
 from cv2 import mean, norm, normalize
 from matplotlib.ticker import FixedFormatter
 from pyparsing import col
@@ -30,7 +28,6 @@ from summit_utils import *
 
 workspace_path = Path(os.getcwd()).parent.parent
 
-
 def calculate_cpm(file_path):
     predictions = pd.read_csv(file_path, header=None, names=['fps', 'sensitivity', 'threshold'])
     fps_itp = np.linspace(0.125, 8, num=10000)
@@ -41,8 +38,6 @@ def calculate_cpm(file_path):
         idxs.append(np.abs(fps_itp - fps_value).argmin())
         
     return np.mean(sens_itp[idxs])
-    
-
 
 def calculate_cpm_from_bootstrapping(file_path):
     metrics = pd.read_csv(file_path)
@@ -571,7 +566,6 @@ def print_intensity_profile(image_array, row, col, idx, diameter):
     print(f'Min Intensity: {min_intensity}, Mean Intensity: {mean_intensity}, Max Intensity: {max_intensity}')
     return min_intensity, mean_intensity, max_intensity
 
-
 def show_numpy_candidate_location(scan_id, row, col, index, diameter, distance_false_positive, iou_false_positive):
     """
     Show the candidate location in the scan
@@ -686,7 +680,6 @@ def show_mhd_candidate_location(scan_id, scan, row, col, index, diameter, distan
     plt.title(f'{scan_id} - {index} {row} {col} {diameter}\nFalse Positive: {distance_false_positive}\nIoU False Positive: {iou_false_positive}')
     plt.show()
 
-
 def copy_scan_from_cluster(scan_id):
     study_id = scan_id.split('_')[0]
    # now copy the src file
@@ -706,10 +699,7 @@ def copy_scan_from_cluster(scan_id):
 
     return f"{workspace_path}/data/summit/scans/{study_id}/{scan_id}.mhd"
 
-
 def display_plots_with_error_bars(model, flavour, actionable, protected_group, categories, sensitivity_data, bootstrap_results, output_path=None):
-
-
 
     print(f'Categories: {len(categories)}')
 
@@ -718,8 +708,6 @@ def display_plots_with_error_bars(model, flavour, actionable, protected_group, c
     for idx, cat in enumerate(categories):
         cat_increments[cat] = increment + 0.1 * idx
 
-
-    # Example summary statistics (mean, low, high) for Male and Female at each FPPI level
     fppi_levels = [0.125, 0.25, 0.5, 1, 2, 4, 8]
 
     means = {}
@@ -740,81 +728,43 @@ def display_plots_with_error_bars(model, flavour, actionable, protected_group, c
 
         low[cat] = np.array(sensitivity_data[cat]['low_sens'])
         high[cat] = np.array(sensitivity_data[cat]['high_sens'])
-    
-
-    # Run comparitive stats test
-    all_operating_points = np.linspace(0.125, 8, num=10000) 
-
-    group1_bootstrap_results = bootstrap_results[categories[0]]
-    group2_bootstrap_results = bootstrap_results[categories[1]]
-    auc_group1_bootstraps = []
-    auc_group2_bootstraps = []
-
-    if len(categories) == 3:
-        group3_bootstrap_results = bootstrap_results[categories[2]]
-        auc_group3_bootstraps = []
-
-    for i in range(1000):
-
-        auc_group1_bootstraps.append(np.trapz(group1_bootstrap_results[i,:], x=all_operating_points))
-        auc_group2_bootstraps.append(np.trapz(group2_bootstrap_results[i,:], x=all_operating_points))
-
-        if len(categories) == 3:
-            auc_group3_bootstraps.append(np.trapz(group3_bootstrap_results[i,:], x=all_operating_points))
-
-    auc_group1_bootstraps = np.array(auc_group1_bootstraps)
-    auc_group2_bootstraps = np.array(auc_group2_bootstraps)
-    if len(categories) == 3:
-        auc_group3_bootstraps = np.array(auc_group3_bootstraps)
-
-
-    auc_diff_group1_v_group2 = auc_group1_bootstraps - auc_group2_bootstraps
-    group1_v_group2_ci_low, group1_v_group2_ci_high = np.percentile(auc_diff_group1_v_group2, [2.5, 97.5])
-    group1_v_group2_t_stat, group1_v_group2_p_value = stats.ttest_ind(auc_group1_bootstraps, auc_group2_bootstraps)
-
-    stats_title = "*"*20
-    stats_title += f"\nGroup1: {categories[0]} vs Group2: {categories[1]}\n"
-    stats_title += f"AUC-like difference 95% CI: {group1_v_group2_ci_low:.4f}, {group1_v_group2_ci_high:.4f}\n"
-    stats_title += f"Overall p-value: {group1_v_group2_p_value:.4f}\n"
-    
-    if len(categories) == 3:
-        auc_diff_group1_v_group3 = auc_group1_bootstraps - auc_group3_bootstraps
-        group1_v_group3_ci_low, group1_v_group3_ci_high = np.percentile(auc_diff_group1_v_group3, [2.5, 97.5])
-        group1_v_group3_t_stat, group1_v_group3_p_value = stats.ttest_ind(auc_group1_bootstraps, auc_group3_bootstraps)
-        stats_title += "*"*20
-        stats_title += f"\nGroup1: {categories[0]} vs Group2: {categories[2]}\n"
-        stats_title += f"AUC-like difference 95% CI: {group1_v_group3_ci_low:.4f}, {group1_v_group3_ci_high:.4f}\n"
-        stats_title += f"Overall p-value: {group1_v_group3_p_value:.4f}\n"
-
-        auc_diff_group2_v_group3 = auc_group2_bootstraps - auc_group3_bootstraps
-        group2_v_group3_ci_low, group2_v_group3_ci_high = np.percentile(auc_diff_group2_v_group3, [2.5, 97.5])
-        group2_v_group3_t_stat, group2_v_group3_p_value = stats.ttest_ind(auc_group2_bootstraps, auc_group3_bootstraps)
-        stats_title += "*"*20
-        stats_title += f"\nGroup1: {categories[1]} vs Group2: {categories[2]}\n"
-        stats_title += f"AUC-like difference 95% CI: {group2_v_group3_ci_low:.4f}, {group2_v_group3_ci_high:.4f}\n"
-        stats_title += f"Overall p-value: {group2_v_group3_p_value:.4f}\n"
-
-    title_template = f'{model} {flavour} - {actionable} - {protected_group}'
-    for cat in categories:
-        title_template += f'\n{cat}: {np.mean(means[cat]):.4f} (95% CI {np.mean(low[cat]):.4f}-{np.mean(high[cat]):.4f})'
-
-    title_template += f'\n{stats_title}'
-
 
     # Plotting side-by-side scatter plots with error bars
-    plt.figure(figsize=(12, 12))
-
     bar_width = 0.1
     index = np.arange(len(fppi_levels))
 
-    for idx, cat in enumerate(means.keys()):
-        plt.errorbar(index + cat_increments[cat], means[cat], yerr=errors[cat], fmt='o',label=cat, capsize=5)
+    model_mappings = {
+        'grt123': 'Model 1',
+        'detection' : 'Model 2',
+        'ticnet' : 'Model 3'
+    }
 
-    plt.xlabel('False Positives Per Scan')
-    plt.ylabel('Sensitivity')
-    plt.title(title_template, fontsize=24)
-    plt.xticks(index, fppi_levels)
-    plt.legend()
+    group_mappings = {
+        'gender' : ' across sex',
+        'ethnic_group' : 'across ethnic groups'
+    }
+
+    title_template = f'{model_mappings[model]} {group_mappings[protected_group]}'
+
+    plt.figure(figsize=(8, 8))
+    for idx, cat in enumerate(means.keys()):
+        plt.errorbar(
+            index + cat_increments[cat], 
+            means[cat], 
+            yerr=errors[cat], 
+            fmt='o', 
+            label=cat, 
+            capsize=5, 
+            linewidth=5,
+            markersize=10
+        )
+
+    plt.xlabel('False Positives Per Scan', fontsize=28)
+    plt.ylabel('Sensitivity', fontsize=28)
+    plt.title(title_template, fontsize=35)
+    plt.xticks(index, fppi_levels, fontsize=20, rotation=45)
+    plt.yticks(fontsize=20, rotation=45)
+    plt.legend(fontsize=28, framealpha=0.5)
     plt.ylim(0.0, 1.0)  # Adjust ylim based on your data range
 
     plt.grid(True)
@@ -825,4 +775,24 @@ def display_plots_with_error_bars(model, flavour, actionable, protected_group, c
     else:
         plt.show()
 
+def check_ci_across_categories(bootstrap_results_category1, bootstrap_results_category2):
+    
+    # Run comparitive stats test
+    all_operating_points = np.linspace(0.125, 8, num=10000) 
 
+    group1_bootstrap_results = bootstrap_results_category1
+    group2_bootstrap_results = bootstrap_results_category2
+    auc_group1_bootstraps = []
+    auc_group2_bootstraps = []
+
+    for i in range(1000):
+        auc_group1_bootstraps.append(np.trapz(group1_bootstrap_results[i,:], x=all_operating_points))
+        auc_group2_bootstraps.append(np.trapz(group2_bootstrap_results[i,:], x=all_operating_points))
+
+    auc_group1_bootstraps = np.array(auc_group1_bootstraps)
+    auc_group2_bootstraps = np.array(auc_group2_bootstraps)
+
+    auc_diff_group1_v_group2 = auc_group1_bootstraps - auc_group2_bootstraps
+    group1_v_group2_ci_low, group1_v_group2_ci_high = np.percentile(auc_diff_group1_v_group2, [2.5, 97.5])
+
+    return group1_v_group2_ci_low, group1_v_group2_ci_high
