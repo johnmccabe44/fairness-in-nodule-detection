@@ -13,7 +13,7 @@ import scipy.stats as stats
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FixedFormatter
 from metaflow import FlowSpec, IncludeFile, Parameter, conda_base, step
-
+from requests import get
 
 if sys.platform == "darwin":
     sys.path.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/utilities')
@@ -31,7 +31,8 @@ import sys
 
 from evaluation import noduleCADEvaluation
 from FairnessInNoduleDetectionAlgorithms.utils import (
-    calculate_cpm_from_bootstrapping, display_plots_with_error_bars)
+    calculate_cpm_from_bootstrapping, check_ci_across_categories,
+    display_plots_with_error_bars)
 from summit_utils import *
 from utils import load_data
 
@@ -41,7 +42,7 @@ class FROCFlow(FlowSpec):
     Calculate the free response operating characteristic (FROC) scores for each demographic group
     """
 
-    dataset = Parameter('dataset', help='Dataset to evaluate', default='lsut')
+    dataset = Parameter('dataset', help='Dataset to evaluate', default='summit')
     model = Parameter('model', help='Model to evaluate', default='grt123')
     flavour = Parameter('flavour', help='Flavour to evaluate', default='test_balanced')
     actionable = Parameter('actionable', type=bool, help='Only include actionable cases', default=True)
@@ -76,7 +77,7 @@ class FROCFlow(FlowSpec):
 
         if self.flavour == 'test_balanced':
             self.demographic_groups = [('all', 'all')] + gender_groups[self.dataset] + ethnic_groups[self.dataset]
-
+            
         elif self.flavour == 'male_only':
             self.demographic_groups = [('all', 'all')] + ethnic_groups[self.dataset]
 
@@ -194,7 +195,6 @@ class FROCFlow(FlowSpec):
             self.demographic_groups = [
                 ('ethnic_group' , groupings[self.dataset]['ethnic_group'])
             ]
-
         elif self.flavour == 'white_only':
             self.demographic_groups = [
                 ('gender' , groupings[self.dataset]['gender'])
@@ -210,21 +210,55 @@ class FROCFlow(FlowSpec):
         demographic_group = self.input[0]
         demographic_categories = self.input[1]
 
-        display_plots_with_error_bars(
-            model=self.model,
-            flavour=self.flavour, 
-            actionable=self.actionable,
-            protected_group=demographic_group,
-            categories=demographic_categories,
-            sensitivity_data=self.cpm_data,
-            bootstrap_results=self.bootstap_results,
-            output_path=Path(f'{self.output_dir}/images')
-            )
 
+        # display_plots_with_error_bars(
+        #     model=self.model,
+        #     flavour=self.flavour, 
+        #     actionable=self.actionable,
+        #     protected_group=demographic_group,
+        #     categories=demographic_categories,
+        #     sensitivity_data=self.cpm_data,
+        #     bootstrap_results=self.bootstap_results,
+        #     output_path=Path(f'{self.output_dir}/images')
+        #     )
+
+        self.cpm_data = self.cpm_data
+
+        self.ci_interval_data = {}
+        if len(demographic_categories) == 2:
+            self.ci_interval_data[f'{demographic_categories[0]}_vs_{demographic_categories[1]}'] = check_ci_across_categories(
+            self.bootstap_results[demographic_categories[0]],
+            self.bootstap_results[demographic_categories[1]]
+            )
+        elif len(demographic_categories) == 3:
+            combinations = [(0, 1), (0, 2), (1, 2)]
+            for i, j in combinations:
+                self.ci_interval_data[f'{demographic_categories[i]}_vs_{demographic_categories[j]}'] = check_ci_across_categories(
+                    self.bootstap_results[demographic_categories[i]],
+                    self.bootstap_results[demographic_categories[j]]
+                )
         self.next(self.join_chart)
 
     @step
     def join_chart(self, inputs):
+
+        self.ci_interval_data = {}
+        for inp in inputs:
+            self.ci_interval_data.update(inp.ci_interval_data)
+
+        with open(f'{self.workspace_path}/workflows/FairnessInNoduleDetectionAlgorithms/results/{self.dataset}/{self.model}_{self.flavour}_ci.json', 'w') as f:
+            f.write(json.dumps(self.ci_interval_data))    
+
+
+        self.cpm_data = {}
+        for inp in inputs:
+            self.cpm_data.update({k: df.to_dict(orient='records') for k, df in inp.cpm_data.items()})
+
+        with open(f'{self.workspace_path}/workflows/FairnessInNoduleDetectionAlgorithms/results/{self.dataset}/{self.model}_{self.flavour}_froc.json', 'w') as f:
+            f.write(json.dumps(self.cpm_data))    
+
+
+
         self.next(self.end)
 
     @step

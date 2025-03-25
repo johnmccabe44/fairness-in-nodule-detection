@@ -1,8 +1,10 @@
+import json
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from cv2 import threshold
-import json
-from pathlib import Path
+
 
 def convert_to_csv_from_json(json_file):
     with open(json_file, 'r') as f:
@@ -56,6 +58,7 @@ def load_data(workspace_path, model, dataset, flavour, actionable):
                     'management_plan',
                     'gender',
                     'ethnic_group',
+                    'nodule_diameter_mm',
                     'nodule_lesion_id',
                     'nodule_type'
                 ]
@@ -82,6 +85,7 @@ def load_data(workspace_path, model, dataset, flavour, actionable):
                     'management_plan',
                     'gender',
                     'ethnic_group',
+                    'nodule_diameter_mm',
                     'nodule_lesion_id',
                     'nodule_type'
                 ]
@@ -95,7 +99,7 @@ def load_data(workspace_path, model, dataset, flavour, actionable):
         elif model == 'ticnet':
 
             _annotations = (
-                pd.read_csv(f'{workspace_path}/../TiCNet-main/annotations/summit/{flavour}/test_metadata.csv')
+                pd.read_csv(f'{workspace_path}/models/ticnet/annotations/summit/{flavour}/test_metadata.csv')
                 .rename(columns={
                     'seriesuid' : 'name',
                     'coordX' : 'row',
@@ -114,7 +118,7 @@ def load_data(workspace_path, model, dataset, flavour, actionable):
             )
 
             annotations = (
-                pd.merge(_metadata, _annotations, on=['name', 'name_counter'], how='outer')
+                pd.merge(_metadata, _annotations, on=['name', 'name_counter'], how='inner')
                 .filter([
                     'name',
                     'col',
@@ -124,15 +128,17 @@ def load_data(workspace_path, model, dataset, flavour, actionable):
                     'management_plan',
                     'gender',
                     'ethnic_group',
+                    'nodule_diameter_mm',
                     'nodule_lesion_id',
                     'nodule_type'
                 ])
             )
 
+            assert annotations.shape[0] == _annotations.shape[0], 'Mismatch in number of annotations'
             assert annotations.shape[0] == _metadata.shape[0], 'Mismatch in number of annotations'
 
             results = (
-                pd.read_csv(f'{workspace_path}/../TiCNet-main/results/summit/{flavour}/res/110/FROC/submission_rpn.csv')
+                pd.read_csv(f'{workspace_path}/models/ticnet/results/trained_summit/summit/{flavour}/res/110/FROC/submission_rpn.csv')
                 .rename(
                     columns={
                         'seriesuid' : 'name',
@@ -148,7 +154,12 @@ def load_data(workspace_path, model, dataset, flavour, actionable):
         scan_metadata = (
             pd.read_csv(
                 f'{workspace_path}/metadata/summit/{flavour}/test_scans_metadata.csv',
-                usecols=['Y0_PARTICIPANT_DETAILS_main_participant_id', 'participant_details_gender','lung_health_check_demographics_race_ethnicgroup']
+                usecols=[
+                    'Y0_PARTICIPANT_DETAILS_main_participant_id', 
+                    'participant_details_gender',
+                    'lung_health_check_demographics_race_ethnicgroup',
+                    'radiology_report_management_plan_final'
+                ]
             )
             .rename(
                 columns={
@@ -197,7 +208,7 @@ def load_data(workspace_path, model, dataset, flavour, actionable):
 
         elif model == 'detection':
             annotations = (
-                pd.read_csv(f'{workspace_path}/metadata/lsut/tranche1_metadata.csv')
+                pd.read_csv(f'{workspace_path}/metadata/lsut/lsut_metadata.csv')
                 .rename(columns={
                     'scan_id' : 'name',
                     'nodule_x_coordinate' : 'row',
@@ -223,7 +234,7 @@ def load_data(workspace_path, model, dataset, flavour, actionable):
 
         elif model == 'ticnet':
             _annotations = (
-                pd.read_csv(f'{workspace_path}/models/ticnet/annotations/lsut/{flavour}/tranche1_metadata.csv')
+                pd.read_csv(f'{workspace_path}/models/ticnet/annotations/lsut/{flavour}/lsut_metadata.csv')
                 .rename(columns={
                     'seriesuid' : 'name',
                     'coordX' : 'row',
@@ -236,7 +247,7 @@ def load_data(workspace_path, model, dataset, flavour, actionable):
             )
 
             _metadata = (
-                pd.read_csv(f'{workspace_path}/metadata/lsut/tranche1_metadata.csv')
+                pd.read_csv(f'{workspace_path}/metadata/lsut/lsut_metadata.csv')
                 .rename(columns={'scan_id' : 'name'})
                 .assign(nodule_type=lambda df: df['Nod_type'].map(lsut_nodule_type_mapping))
                 .assign(actionable=lambda df: df.apply(lambda row: is_actionable(row), axis=1))
@@ -260,7 +271,7 @@ def load_data(workspace_path, model, dataset, flavour, actionable):
             assert annotations.shape[0] == _metadata.shape[0], 'Mismatch in number of annotations'
 
             results = (
-                pd.read_csv(f'{workspace_path}/models/ticnet/results/trained_summit/lsut/{flavour}/res/120/FROC/submission_rpn.csv')
+                pd.read_csv(f'{workspace_path}/models/ticnet/results/trained_summit/lsut/{flavour}/res/110/FROC/submission_rpn.csv')
                 .rename(
                     columns={
                         'seriesuid' : 'name',
@@ -285,7 +296,7 @@ def load_data(workspace_path, model, dataset, flavour, actionable):
 
         scan_metadata = (
             pd.read_csv(
-                f'{workspace_path}/metadata/lsut/tranche1_scan_metadata.csv',
+                f'{workspace_path}/metadata/lsut/lsut_scans_metadata.csv',
                 usecols=['ScananonID','clinic_gender','clinic_ethnicity']
             )
             .rename(

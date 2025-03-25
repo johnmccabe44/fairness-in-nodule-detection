@@ -9,7 +9,7 @@ import scipy.stats as stats
 from evaluation import noduleCADEvaluation
 from FairnessInNoduleDetectionAlgorithms.utils import (get_thresholds,
                                                        miss_anaysis_at_fpps)
-from metaflow import FlowSpec, Parameter
+from metaflow import FlowSpec, Parameter, step
 
 sys.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/utilities')
 
@@ -115,4 +115,4 @@ class MissedNodulesFlow(FlowSpec):
 
 
 if __name__ == '__main__':
-    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()    MissedNodulesFlow()
+    MissedNodulesFlow()

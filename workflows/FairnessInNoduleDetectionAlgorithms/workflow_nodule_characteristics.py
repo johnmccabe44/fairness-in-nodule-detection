@@ -37,7 +37,7 @@ class NoduleCharacteristicsFlow(FlowSpec):
     Calculate the free response operating characteristic (FROC) scores for each demographic group
     """
 
-    model = Parameter('model', help='Model to evaluate', default='ticnet')
+    model = Parameter('model', help='Model to evaluate', default='grt123')
     flavour = Parameter('flavour', help='Flavour to evaluate', default='test_balanced')
     actionable = Parameter('actionable', type=bool, help='Only include actionable cases', default=True)
     dataset = Parameter('dataset', help='Dataset to evaluate', default='lsut')
@@ -53,6 +53,7 @@ class NoduleCharacteristicsFlow(FlowSpec):
     def start(self):
         
         self.output_dir = f'{self.workspace_path}/workflows/FairnessInNoduleDetectionAlgorithms/results/{self.dataset}/{self.model}/{self.flavour}/{"Actionable" if self.actionable else "All"}/FROC'
+        os.makedirs(f'{self.output_dir}/images', exist_ok=True)
 
         self.annotations, self.results, self.scan_metadata, self.annotations_excluded = load_data(
             self.workspace_path, self.model, self.dataset, self.flavour, self.actionable
@@ -124,6 +125,12 @@ class NoduleCharacteristicsFlow(FlowSpec):
     @step
     def nodule_characteristics(self):
 
+        model_mappings = {
+            'grt123': 'Model 1',
+            'detection': 'Model 2',
+            'ticnet': 'Model 3'
+        }
+
         diameter_cats = [0, 6, 8, 30, 40, 999]
         
         diameter_lbs = [
@@ -136,7 +143,7 @@ class NoduleCharacteristicsFlow(FlowSpec):
 
         nodule_characteristics = {
            'diameter_cats': diameter_lbs,
-            'nodule_type': ['SOLID', 'NON_SOLID', 'PART_SOLID', 'CALCIFIED', 'PERIFISSURAL']
+            'nodule_type': ['SOLID', 'NON_SOLID', 'PART_SOLID', 'CALCIFIED']
         }
 
         colors = ['red','blue','green','orange','purple','brown','pink']
@@ -152,6 +159,8 @@ class NoduleCharacteristicsFlow(FlowSpec):
                         labels=diameter_lbs
                     )            
                 ))
+            
+            training_data = training_data[training_data[var].isin(order)]
 
             total_vc = training_data[var].value_counts().sort_index().rename('Total Annotations')
 
@@ -171,34 +180,51 @@ class NoduleCharacteristicsFlow(FlowSpec):
                     
                 )
 
-            df = pd.concat(results, axis=1).fillna(0).round(2).merge(total_vc.to_frame(), left_index=True, right_index=True)
+            df = pd.concat(results, axis=1).fillna(0).round(2)
 
             print(df)
 
-            fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+            fig, ax = plt.subplots(1, 1, figsize=(4, 5))
             line_styles = ['-', '--', '-.', ':', '-', '--', '-.']
             total_vc = total_vc[total_vc.index.isin(df.index)].reindex(df.index)
+
 
             for isx, column in enumerate(df.T):    
                 ax.plot(df.T[column], label=cleanup(column), linestyle=line_styles[isx], color=colors[isx])
                     
-            ax.set_xticklabels(labels=df.columns, rotation=45)
-            ax.legend()    
-            ax.set_xlabel('False positives per scan')
+            
+            
+            if self.model == 'grt123':
+                ax.legend(fontsize=12, loc='upper left')  
+
+            if var == 'nodule_type':  
+                ax.set_xticklabels(labels=df.columns, rotation=45, fontsize=14)
+                ax.set_xlabel('False positives per scan', fontsize=14)
+            else:
+                ax.set_xticklabels([])
+
             ax.set_ylim(0, 1)
-            ax.set_ylabel('% of detections')
-            ax.grid(visible=True, which='both')
+            ax.set_ylabel('% of detections', fontsize=14)
+            ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+            if var == 'diameter_cats':
+                ax.set_title(model_mappings[self.model])
 
             plt.tight_layout()
-            plt.savefig(f'{self.output_dir}/images/nodule_characteristics_{var}.png')
+            os.makedirs(f'{self.output_dir}/images', exist_ok=True)
+            plt.savefig(f'{self.output_dir}/images/{self.model}_nodule_characteristics_{var}.png')
 
-            fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+
+            fig, ax = plt.subplots(1, 1, figsize=(4, 5))
             ax.bar([cleanup(idx) for idx in total_vc.index], total_vc, alpha=0.5, label=cleanup(column), color=colors)
-            ax.set_xticklabels(labels=[cleanup(idx) for idx in total_vc.index], rotation=45)
-            ax.set_xlabel('Total Number of Category in Training Data')
+            ax.set_xticklabels(labels=[cleanup(idx) for idx in total_vc.index], rotation=45, fontsize=14)
+
+            if var == 'nodule_type':
+                ax.set_xlabel('Training Data Counts', fontsize=14)
+            ax.grid(axis='y', linestyle='--', alpha=0.7)
 
             plt.tight_layout()
-            plt.savefig(f'{self.output_dir}/images/nodule_characteristics_total_{var}.png')
+            plt.savefig(f'{self.output_dir}/images/{self.model}_nodule_characteristics_total_{var}.png')
 
         self.next(self.end)
 

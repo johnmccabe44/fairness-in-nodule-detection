@@ -326,10 +326,14 @@ def evaluateCAD(seriesUIDs, results_filename, outputDir, allNodules, CADSystemNa
             if noduleAnnot.state == "Included":
                 totalNumberOfNodules += 1
 
-            x = float(noduleAnnot.coordX)
-            y = float(noduleAnnot.coordY)
-            z = float(noduleAnnot.coordZ)
-
+            try:
+                x = float(noduleAnnot.coordX)
+                y = float(noduleAnnot.coordY)
+                z = float(noduleAnnot.coordZ)
+            except Exception as e:
+                print('Error in ', filter)
+                raise e
+            
             # 2. Check if the nodule annotation is covered by a candidate
             # A nodule is marked as detected when the center of mass of the candidate is within a distance R of
             # the center of the nodule. In order to ensure that the CAD mark is displayed within the nodule on the
@@ -707,33 +711,52 @@ def calculate_map_per_scan(gt_annotations, pred_annotations, iou_threshold=0.5):
 
     return np.mean(aps)
 
-def bootstrap_evaluation(task_index, gt_annotations, pred_annotations, number_of_samples, iou_threshold=0.1):
+def bootstrap_evaluation(task_index, scans, annotations_dict, predictions_dict, iou_threshold=0.1):
 
-        np.random.seed(task_index)
-        sample_names = np.random.choice(list(gt_annotations.keys()), number_of_samples, replace=True)
+        sample_names = np.random.choice(scans, len(scans), replace=True)
         
-        gt_sample = {i: gt_annotations[name] for i, name in enumerate(sample_names)}
-        pred_sample = {i: pred_annotations[name] for i, name in enumerate(sample_names)}
+        gt_sample = {
+            i: annotations_dict.get(name, [])
+            for i, name in enumerate(sample_names)
+        }
+        
+        pred_sample = {
+            i: predictions_dict.get(name, {'boxes': [], 'scores': []})
+            for i, name in enumerate(sample_names)
+        }
+
         mAP = calculate_map_per_scan(gt_sample, pred_sample, iou_threshold)
 
         return mAP
 
-def pool_bootstrap_evaluation(gt_annotations, pred_annotations, number_of_samples, n_bootstrap=1000, iou_threshold=0.1, workers=1):
+def pool_bootstrap_evaluation(scans, annotations_dict, predictions_dict, n_bootstrap=1000, iou_threshold=0.1, workers=1):
 
+
+    random.seed(42)
+    np.random.seed(42)
     mAPs = []
     if workers == 1:
 
         for task_index in tqdm(range(n_bootstrap)):
-            mAP = bootstrap_evaluation(task_index, gt_annotations, pred_annotations, number_of_samples, iou_threshold=iou_threshold)
+            mAP = bootstrap_evaluation(
+                task_index, 
+                scans,
+                annotations_dict, 
+                predictions_dict,
+                iou_threshold=iou_threshold
+            )
+
             mAPs.append(mAP)
     else:
 
         with Pool(workers) as pool:
-            worker_func = partial(bootstrap_evaluation, 
-                                  gt_annotations=gt_annotations,
-                                  pred_annotations=pred_annotations,
-                                  number_of_samples=number_of_samples,
-                                  iou_threshold=iou_threshold)
+            worker_func = partial(
+                bootstrap_evaluation, 
+                scans=scans,
+                annotations_dict=annotations_dict,
+                predictions_dict=predictions_dict,
+                iou_threshold=iou_threshold
+            )
             
             for result in tqdm(pool.imap(worker_func, range(n_bootstrap)), total=n_bootstrap):
                 mAPs.append(result)
@@ -741,11 +764,9 @@ def pool_bootstrap_evaluation(gt_annotations, pred_annotations, number_of_sample
     return mAPs
 
 def calculate_ci(map_values, ci=0.95):
-    alpha = 1 - ci
-    p = ((1.0 - alpha) / 2.0) * 100
-    lower = max(0.0, np.percentile(map_values, p))
-    p = (alpha + ((1.0 - alpha) / 2.0)) * 100
-    upper = min(1.0, np.percentile(map_values, p))
+    sorted_map_values = np.sort(map_values)
+    lower = sorted_map_values[int((1.0 - ci) / 2.0 * len(sorted_map_values))]
+    upper = sorted_map_values[int((1.0 + ci) / 2.0 * len(sorted_map_values)) - 1]
 
     return f'{round(np.mean(map_values),2)} (CI 95% {round(lower,2)}-{round(upper,2)})'
 

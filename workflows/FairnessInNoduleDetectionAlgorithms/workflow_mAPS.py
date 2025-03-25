@@ -1,66 +1,45 @@
 import json
-import numpy as np
-from metaflow import FlowSpec, step, IncludeFile, Parameter, conda_base
-import numpy as np
-import os
-import pandas as pd
-from pathlib import Path
-import scipy.stats as stats
 import sys
 
-from sympy import use
-from torch import ge
+from metaflow import FlowSpec, IncludeFile, Parameter, conda_base, step
 
-sys.path.append('../utilities')
+if sys.platform == "darwin":
+    sys.path.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/utilities')
+    sys.path.append('/Users/john/Projects/SOTAEvaluationNoduleDetection/notebooks')
+elif sys.platform == "linux":
+    sys.path.append('/home/jmccabe/Projects/SOTAEvaluationNoduleDetection/utilities')
+    sys.path.append('/home/jmccabe/Projects/SOTAEvaluationNoduleDetection/notebooks')
+else:
+    raise EnvironmentError("Unsupported platform")
 
-from evaluation import calculate_ci, pool_bootstrap_evaluation
+from evaluation import (calculate_ci, noduleCADEvaluation,
+                        pool_bootstrap_evaluation)
+from FairnessInNoduleDetectionAlgorithms.utils import (
+    calculate_cpm_from_bootstrapping, display_plots_with_error_bars)
+from summit_utils import *
+from utils import load_data
 
-
-def read_predictions(workspace_path, model, flavour):
-    if model == 'grt123':
-        return pd.read_csv(
-            f'{workspace_path}/models/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_predictions.csv',
-            usecols=['name', 'col', 'row', 'index', 'diameter', 'threshold']
-        ).rename(columns={'threshold': 'threshold_original'}).assign(threshold=lambda x: 1 / (1 + np.exp(-x['threshold_original'])))
-    else:
-        return pd.read_csv(
-            f'{workspace_path}/models/detection/result/trained_summit/summit/{flavour}/predictions.csv',
-            usecols=['name', 'col', 'row', 'index', 'diameter', 'threshold']
-        )
-    
-def read_ground_truths(workspace_path, model, flavour, actionable=True):
-    if model == 'grt123':
-        ground_truths = pd.read_csv(
-            f'{workspace_path}/models/grt123/bbox_result/trained_summit/summit/{flavour}/{flavour}_metadata.csv',
-            usecols=['name', 'col', 'row', 'index','diameter', 'gender', 'ethnic_group', 'management_plan']
-        )
-    else:
-        ground_truths = pd.read_csv(
-            f'{workspace_path}/models/detection/result/trained_summit/summit/{flavour}/annotations.csv',
-            usecols=['name', 'col', 'row', 'index','diameter', 'gender', 'ethnic_group', 'management_plan']
-        )
-
-    if actionable:
-        actionable = ground_truths['management_plan'].isin(['3_MONTH_FOLLOW_UP_SCAN','URGENT_REFERRAL', 'ALWAYS_SCAN_AT_YEAR_1'])
-        ground_truths = ground_truths[actionable]
-        
-
-    return ground_truths
 
 class MAPScoreFlow(FlowSpec):
     """
     Calculate the mean average precision (mAP) scores for each demographic group
     """
 
-    model = Parameter('model', help='Model to evaluate')
-    flavour = Parameter('flavour', help='Flavour to evaluate')
+    dataset = Parameter('dataset', help='Dataset to evaluate', default='summit')
+    iou_threshold = Parameter('iou_threshold', help='IoU threshold', default=0.1)
+    model = Parameter('model', help='Model to evaluate', default='detection')
+    flavour = Parameter('flavour', help='Flavour to evaluate', default='test_balanced')
     actionable = Parameter('actionable', help='Only include actionable cases', default=True)
-    workspace_path = Path(os.getcwd()).parent.as_posix()
+    
+    if sys.platform == "darwin":
+        workspace_path = '/Users/john/Projects/SOTAEvaluationNoduleDetection'
+    elif sys.platform == "linux":
+        workspace_path = '/home/jmccabe/Projects/SOTAEvaluationNoduleDetection'
     
     @step
     def start(self):
         
-        self.n_boostraps =1000
+        self.n_boostraps = 1000
 
         print(f'Running evaluation Model: {self.model}, Flavour: {self.flavour}')
 
@@ -68,54 +47,60 @@ class MAPScoreFlow(FlowSpec):
 
     @step
     def load_data(self):
-        self.predictions = read_predictions(self.workspace_path, self.model, self.flavour)
-        self.ground_truths = read_ground_truths(self.workspace_path, self.model, self.flavour, self.actionable)
 
-        print('Loaded data')
-        print('Ground truths:', self.ground_truths.columns)
-        print('Predictions:', self.predictions.columns)
+        self.annotations, self.results, self.scan_metadata, self.annotations_excluded = load_data(
+            self.workspace_path, self.model, self.dataset, self.flavour, self.actionable
+        )
 
+        # Define the subsequent slices to be performed
+        gender_groups = {
+            'summit' : [('gender','MALE'), ('gender', 'FEMALE')],
+            'lsut' : [('gender','Male'), ('gender', 'Female')],
+        }
 
-        gender_categories = [
-            ('gender', 'MALE'),
-            ('gender', 'FEMALE')
-        ]
-
-        ethnic_group_categories = [
-            ('ethnic_group', 'Asian or Asian British'),
-            ('ethnic_group', 'Black'),
-            ('ethnic_group', 'White')
-        ]
+        ethnic_groups = {
+            'summit' : [('ethnic_group', 'Asian or Asian British'),('ethnic_group','Black'),('ethnic_group','White')],
+            'lsut' : [('ethnic_group', 'Other'),('ethnic_group','White')],
+        }
 
         if self.flavour == 'test_balanced':
-            self.map_categories = gender_categories + ethnic_group_categories
+            self.map_categories = [('all', 'all')] + gender_groups[self.dataset] + ethnic_groups[self.dataset]
 
         elif self.flavour == 'male_only':
-            self.map_categories = ethnic_group_categories
+            self.map_categories = [('all', 'all')] + ethnic_groups[self.dataset]
 
-        elif self.flavour == 'balanced_white_only':
-            self.map_categories = gender_categories
+        elif self.flavour == 'white_only':
+            self.map_categories = [('all', 'all')] + gender_groups[self.dataset]
 
         self.next(self.calculate_maps, foreach='map_categories')
     
     @step
     def calculate_maps(self):
 
-        var, cat = self.input
+        group, cat = self.input
 
-        ground_truths = self.ground_truths[self.ground_truths[var]==cat]
-        predictions = self.predictions[self.predictions['name'].isin(ground_truths['name'].values)]
+        if cat == 'all':
+            scans = self.scan_metadata['Name']
+        else:
+            scans = self.scan_metadata[self.scan_metadata[group] == cat]['Name']
 
-        gt_annotations = ground_truths.groupby('name').apply(lambda x: x[['col', 'row', 'index', 'diameter']].values.tolist()).to_dict()
-        pred_annotations = predictions.groupby('name').apply(lambda x: {'boxes': x[['col', 'row', 'index', 'diameter']].values.tolist(), 'scores': x['threshold'].values.tolist()}).to_dict()
+        annotations = self.annotations[self.annotations['name'].isin(scans.values)]
+        predictions = self.results[self.results['name'].isin(scans.values)]
 
-        self.mAP = pool_bootstrap_evaluation(gt_annotations,
-                                                pred_annotations,
-                                                len(gt_annotations), 
-                                                n_bootstrap=self.n_boostraps,
-                                                workers=4)
+        annotations_dict = annotations.groupby('name').apply(lambda x: x[['col', 'row', 'index', 'diameter']].values.tolist()).to_dict()
+        predictions_dict = predictions.groupby('name').apply(lambda x: {'boxes': x[['col', 'row', 'index', 'diameter']].values.tolist(), 'scores': x['threshold'].values.tolist()}).to_dict()
+
+        self.mAP = pool_bootstrap_evaluation(
+            scans,
+            annotations_dict,
+            predictions_dict,
+            n_bootstrap=self.n_boostraps,
+            iou_threshold=self.iou_threshold,
+            workers=4
+        )
 
         self.mean_mAP = calculate_ci(self.mAP)
+        self.group = group
         self.cat = cat
         self.next(self.join_maps)
 
@@ -128,69 +113,16 @@ class MAPScoreFlow(FlowSpec):
         self.mAPs = {}
         
         for inp in inputs:
-            self.mAPs[inp.cat] = inp.mAP
-            self.mean_mAPs[inp.cat] = inp.mean_mAP
+            self.mAPs[f'{inp.group}_{inp.cat}'] = inp.mAP
+            self.mean_mAPs[f'{inp.group}_{inp.cat}'] = inp.mean_mAP
 
 
         # write out results
-        with open(f'{self.workspace_path}/workflows/results/{self.model}_{self.flavour}_mAPs.json', 'w') as f:
+        with open(f'{self.workspace_path}/workflows/FairnessInNoduleDetectionAlgorithms/results/{self.dataset}/{self.model}_{self.flavour}_{self.iou_threshold}_mAPs.json', 'w') as f:
             f.write(json.dumps(self.mAPs))    
 
-        with open(f'{self.workspace_path}/workflows/results/{self.model}_{self.flavour}_mean_mAPs.json', 'w') as f:
+        with open(f'{self.workspace_path}/workflows/FairnessInNoduleDetectionAlgorithms/results/{self.dataset}/{self.model}_{self.flavour}_{self.iou_threshold}_mean_mAPs.json', 'w') as f:
             f.write(json.dumps(self.mean_mAPs))    
-
-        self.next(self.calculate_ttests)
-
-    @step
-    def calculate_ttests(self):
-
-        self.mAPs = self.mAPs
-        self.mean_mAPs = self.mean_mAPs
-
-        print('self.mAPs:', self.mAPs.keys())
-
-
-        gender_categories = [('MALE','FEMALE')]
-        ethnic_group_categories = [
-            ('Asian or Asian British','Black'),
-            ('Asian or Asian British','White'),
-            ('Black','White')]
-
-        if self.flavour == 'test_balanced':
-            self.matched_pairs = gender_categories + ethnic_group_categories
-
-        elif self.flavour == 'male_only':
-            self.matched_pairs = ethnic_group_categories
-
-        elif self.flavour == 'balanced_white_only':
-            self.matched_pairs = gender_categories
-        
-        self.next(self.calculate_ttest, foreach='matched_pairs')
-
-    @step
-    def calculate_ttest(self):
-        cat1, cat2 = self.input
-
-        print(f'Running t-test for {cat1} vs {cat2}')
-
-        t_stat, p_value = stats.ttest_ind(self.mAPs[cat1], self.mAPs[cat2])
-
-        
-        self.ttest_stats = {'t_stat': t_stat, 'p_value': p_value}
-        self.key = f'{cat1}Vs{cat2}'
-
-        self.next(self.join_ttests)
-
-    @step
-    def join_ttests(self, inputs):
-
-        self.ttest_stats = {}      
-        for inp in inputs:
-            self.ttest_stats[inp.key] = inp.ttest_stats
-
-
-        with open(f'{self.workspace_path}/workflows/results/{self.model}_{self.flavour}_ttest_stats.json', 'w') as f:
-            f.write(json.dumps(self.ttest_stats))
 
         self.next(self.end)
 
