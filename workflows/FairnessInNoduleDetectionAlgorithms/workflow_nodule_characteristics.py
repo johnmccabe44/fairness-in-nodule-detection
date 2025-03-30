@@ -184,47 +184,50 @@ class NoduleCharacteristicsFlow(FlowSpec):
 
             print(df)
 
-            fig, ax = plt.subplots(1, 1, figsize=(4, 5))
-            line_styles = ['-', '--', '-.', ':', '-', '--', '-.']
-            total_vc = total_vc[total_vc.index.isin(df.index)].reindex(df.index)
+            # fig, ax = plt.subplots(1, 1, figsize=(4, 5))
+            # line_styles = ['-', '--', '-.', ':', '-', '--', '-.']
+            # total_vc = total_vc[total_vc.index.isin(df.index)].reindex(df.index)
 
 
-            for isx, column in enumerate(df.T):    
-                ax.plot(df.T[column], label=cleanup(column), linestyle=line_styles[isx], color=colors[isx])
+            # for isx, column in enumerate(df.T):    
+            #     ax.plot(df.T[column], label=cleanup(column), linestyle=line_styles[isx], color=colors[isx])
                     
             
             
-            if self.model == 'grt123':
-                ax.legend(fontsize=12, loc='upper left')  
+            # if self.model == 'grt123':
+            #     ax.legend(fontsize=12, loc='upper left')  
 
-            if var == 'nodule_type':  
-                ax.set_xticklabels(labels=df.columns, rotation=45, fontsize=14)
-                ax.set_xlabel('False positives per scan', fontsize=14)
-            else:
-                ax.set_xticklabels([])
+            # if var == 'nodule_type':  
+            #     ax.set_xticklabels(labels=df.columns, rotation=45, fontsize=14)
+            #     ax.set_xlabel('False positives per scan', fontsize=14)
+            # else:
+            #     ax.set_xticklabels([])
 
-            ax.set_ylim(0, 1)
-            ax.set_ylabel('% of detections', fontsize=14)
-            ax.grid(axis='y', linestyle='--', alpha=0.7)
+            # ax.set_ylim(0, 1)
+            # ax.set_ylabel('% of detections', fontsize=14)
+            # ax.grid(axis='y', linestyle='--', alpha=0.7)
 
-            if var == 'diameter_cats':
-                ax.set_title(model_mappings[self.model])
+            # if var == 'diameter_cats':
+            #     ax.set_title(model_mappings[self.model])
 
-            plt.tight_layout()
-            os.makedirs(f'{self.output_dir}/images', exist_ok=True)
-            plt.savefig(f'{self.output_dir}/images/{self.model}_nodule_characteristics_{var}.png')
+            # plt.tight_layout()
+            # os.makedirs(f'{self.output_dir}/images', exist_ok=True)
+            # plt.savefig(f'{self.output_dir}/images/{self.model}_nodule_characteristics_{var}.png')
 
 
-            fig, ax = plt.subplots(1, 1, figsize=(4, 5))
-            ax.bar([cleanup(idx) for idx in total_vc.index], total_vc, alpha=0.5, label=cleanup(column), color=colors)
-            ax.set_xticklabels(labels=[cleanup(idx) for idx in total_vc.index], rotation=45, fontsize=14)
+            # fig, ax = plt.subplots(1, 1, figsize=(4, 5))
+            # ax.bar([cleanup(idx) for idx in total_vc.index], total_vc, alpha=0.5, label=cleanup(column), color=colors)
+            # ax.set_xticklabels(labels=[cleanup(idx) for idx in total_vc.index], rotation=45, fontsize=14)
 
-            if var == 'nodule_type':
-                ax.set_xlabel('Training Data Counts', fontsize=14)
-            ax.grid(axis='y', linestyle='--', alpha=0.7)
+            # if var == 'nodule_type':
+            #     ax.set_xlabel('Training Data Counts', fontsize=14)
+            # ax.grid(axis='y', linestyle='--', alpha=0.7)
 
-            plt.tight_layout()
-            plt.savefig(f'{self.output_dir}/images/{self.model}_nodule_characteristics_total_{var}.png')
+            # plt.tight_layout()
+            # plt.savefig(f'{self.output_dir}/images/{self.model}_nodule_characteristics_total_{var}.png')
+
+            df.to_csv(f'{self.output_dir}/{var}_nodule_characteristics.csv')
+            total_vc.to_csv(f'{self.output_dir}/{var}_nodule_characteristics_total.csv')
 
         self.next(self.end)
 
