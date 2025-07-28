@@ -136,7 +136,7 @@ train_config = {
     'label_types': ['bbox'],
     'DATA_DIR': data_config['preprocessed_data_dir'],
     'ROOT_DIR': os.getcwd(),
-
+    'BBOX_DIR': ''
 }
 
 
