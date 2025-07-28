@@ -1,20 +1,19 @@
 import argparse
-from cgitb import handler
-import time
 import logging
-from functools import partial
-import sys
-import numpy as np
-import scipy.ndimage
-from skimage import measure, morphology
-import SimpleITK as sitk
-from multiprocessing import Pool
 import os
-import pandas as pd
+import sys
+import time
+from cgitb import handler
+from functools import partial
+from multiprocessing import Pool
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import scipy.ndimage
+import SimpleITK as sitk
+from skimage import measure, morphology
 from tqdm import tqdm
-
-
 
 
 def parse_arguments():
@@ -643,7 +642,7 @@ def main():
             logs.append(preprocess(
                     idx=idx, 
                     scan_ids=scan_ids,
-                    scans_root=args.scan_root,
+                    scans_root=args.scans_root,
                     mask_root=args.segmentations_root,
                     save_dir=save_dir,
                     overwrite=args.overwrite,
