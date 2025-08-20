@@ -284,7 +284,7 @@ class FairnessFlow(FlowSpec):
             }
 
             if self.flavour == 'test_balanced':
-                self.map_categories = gender_groups[self.dataset] + ethnic_groups[self.dataset]
+                self.map_categories = [('all','all')] + gender_groups[self.dataset] + ethnic_groups[self.dataset]
 
             elif self.flavour == 'male_only':
                 self.map_categories = ethnic_groups[self.dataset]
@@ -302,11 +302,17 @@ class FairnessFlow(FlowSpec):
 
         self.group, self.cat = self.input
 
-        scan_results = {
-            key : scan_data
-            for key, scan_data in self.scan_results.items()
-            if scan_data[self.group] == self.cat
-        }
+        if self.cat == 'all':
+            scan_results = {
+                key : scan_data
+                for key, scan_data in self.scan_results.items()
+            }
+        else:
+            scan_results = {
+                key : scan_data
+                for key, scan_data in self.scan_results.items()
+                if scan_data[self.group] == self.cat
+            }
 
         self.fairness_data = calculate_fairness_metrics(scan_results)
 
