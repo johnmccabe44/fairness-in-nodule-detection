@@ -1,24 +1,26 @@
+import argparse
 import os
 import shutil
 import sys
 from functools import partial
 from multiprocessing import Pool
+from pathlib import Path
+
 import numpy as np
 import pandas
-from pathlib import Path
 import SimpleITK as sitk
-from sympy import use
 from config_training import config
 from scipy.io import loadmat
-from scipy.ndimage import zoom
-from scipy.ndimage import binary_dilation, generate_binary_structure
+from scipy.ndimage import binary_dilation, generate_binary_structure, zoom
 from skimage.morphology import convex_hull_image
+from sympy import use
 
 sys.path.append('../preprocessing')
 import warnings
 
-from step1 import step1_python
 from full_prep import full_prep_summit
+from step1 import step1_python
+
 
 def resample(imgs, spacing, new_spacing,order=2):
     if len(imgs.shape)==3:
@@ -432,15 +434,38 @@ def prepare_luna():
     f= open(finished_flag,"w+")
 
 if __name__=='__main__':
-    #full_prep(step1=True,step2=True)
-    #prepare_luna()
-    #preprocess_luna()
 
+    """"
+    Description:
+        Preprocess medical imaging data for 'luna' or 'summit' datasets.
 
+        JM added to support LUNA and SUMMIT preprocessing.
 
-    dataset         = sys.argv[1]
-    scanlist_path   = sys.argv[2]
-    metadata_path   = sys.argv[3]
+    Command line arguments:
+        dataset: 'luna' or 'summit'
+        scanlist_path: path to scanlist CSV file
+        metadata_path: path to metadata CSV file
+        datapath: path to data directory (for summit)
+        prep_result_path: path to preprocessing result directory (for summit)
+        --n_worker_preprocessing: number of workers for preprocessing (default: 1)
+        --use_existing: flag to use existing preprocessed files (default: False)
+
+    """
+
+    parser = argparse.ArgumentParser(description='Preprocess medical imaging data')
+    parser.add_argument('--dataset', type=str, help='Dataset type (luna or summit)')
+    parser.add_argument('--scanlist-path', type=str, help='Path to scanlist CSV file')
+    parser.add_argument('--metadata-path', type=str, help='Path to metadata CSV file')
+
+    parser.add_argument('--data-path', type=str, help='Path to data directory')
+    parser.add_argument('--prep-result-path', type=str, help='Path to preprocessing result directory')
+    parser.add_argument('--n-worker-preprocessing', type=int, default=1, help='Number of workers for preprocessing')
+    parser.add_argument('--use-existing', action='store_true', help='Use existing preprocessed files')
+    args = parser.parse_args()
+
+    dataset         = args.dataset
+    scanlist_path   = args.scanlist_path
+    metadata_path   = args.metadata_path
 
     if dataset == 'luna':
 
@@ -451,10 +476,11 @@ if __name__=='__main__':
 
     elif dataset == 'summit':
 
-        datapath                = config['datapath'] 
-        prep_result_path        = config['preprocess_result_path']
-        n_worker_preprocessing  = config['n_worker_preprocessing']
-        use_existing            = config['use_existing']
+        # Arguments already parsed above
+        datapath                = args.datapath
+        prep_result_path        = args.prep_result_path
+        n_worker_preprocessing  = args.n_worker_preprocessing
+        use_existing            = args.use_existing
         
         full_prep_summit(
             data_path=datapath,

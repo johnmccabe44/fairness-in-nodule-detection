@@ -1,12 +1,99 @@
-*
-**/.DS_Store
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Metadata files
+*.csv
+*.tsv
+*.json
+*.txt
+
+# Imaging files
+*.mhd
+*.raw
+*.zraw
+*.nii
+*.nii.gz
+*.npy
+
+# Local bash files
+*.sh
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
 data/
 docs/
 lsut/
+.metaflow/
+cache/
+images/
+logs/
+metadata/
+miccai_fair_ai/
+results/
+notebooks/
 
-!*/
-!*.py
-!*.ipynb
-!*.md
-!requirements.txt
-!*.pptx
+# Remove submission files (powerpoint, pdf, etc.)
+*.ppt
+*.pptx
+*.pdf

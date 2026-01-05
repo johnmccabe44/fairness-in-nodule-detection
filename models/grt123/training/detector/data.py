@@ -1,14 +1,16 @@
+import collections
+import os
+import random
+import time
+import warnings
+
 import numpy as np
 import torch
-from torch.utils.data import Dataset
-import os
-import time
-import collections
-import random
 from layers import iou
 from scipy.ndimage import zoom
-import warnings
 from scipy.ndimage.interpolation import rotate
+from torch.utils.data import Dataset
+
 
 class DataBowl3Detector(Dataset):
     def __init__(self, data_dir, scan_list, config, phase = 'train',split_comber=None, debug=False):
@@ -41,9 +43,6 @@ class DataBowl3Detector(Dataset):
             for idx in idcs
             ]
 
-        #self.kagglenames = [f for f in self.filenames if len(f.split('/')[-1].split('_')[0])>20]
-        #self.lunanames = [f for f in self.filenames if len(f.split('/')[-1].split('_')[0])<20]
-        self.summitnames = self.filenames
         labels = []
         
         for idx in idcs:
@@ -106,8 +105,8 @@ class DataBowl3Detector(Dataset):
                     #  print(f'--{filename},{sample.shape},{target.shape}, {bboxes}', flush=True)
 
             else:
-                randimid = np.random.randint(len(self.summitnames))
-                filename = self.summitnames[randimid]
+                randimid = np.random.randint(len(self.filenames))
+                filename = self.filenames[randimid]
                 
                 imgs = np.load(filename)
                 bboxes = self.sample_bboxes[randimid]
@@ -147,7 +146,6 @@ class DataBowl3Detector(Dataset):
             return len(self.bboxes)
         else:
             return len(self.sample_bboxes)
-        
         
 def augment(sample, target, bboxes, coord, ifflip = True, ifrotate=True, ifswap = True):
     #                     angle1 = np.random.rand()*180

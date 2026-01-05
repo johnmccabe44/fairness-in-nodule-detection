@@ -2,8 +2,7 @@ import os
 import warnings
 from functools import partial
 from multiprocessing import Pool
-
-#import h5py
+from pathlib import Path
 
 import numpy as np
 import pandas
@@ -12,10 +11,9 @@ from scipy.ndimage.interpolation import zoom
 from scipy.ndimage.morphology import binary_dilation, generate_binary_structure
 from skimage import measure
 from skimage.morphology import convex_hull_image
-from pathlib import Path
-
 from step1 import step1_python, step1_python_summit
 
+#import h5py
 
 def process_mask(mask):
     convex_mask = np.copy(mask)
@@ -158,6 +156,38 @@ def savenpy(id, filelist, prep_folder, data_path, use_existing=True, metadata_pa
     print(scan_id+' done')
 
 def savenpy_summit(id, scanpath_list, prep_folder, use_existing=True, metadata_path=None):     
+    """
+    JM: Added for SUMMIT dataset pre-processing.
+    Preprocess and save CT scan data and nodule labels to numpy files.
+    This is a sub-function of the full_prep_summit function that handles the conversion
+    and storage of individual scan data to .npy format for efficient loading during training.
+    The function performs the following operations:
+    1. Loads CT scan and mask data from the specified scan path
+    2. Retrieves nodule metadata (coordinates and diameter) from a CSV file using pandas
+    3. Resamples the scan to a standard resolution [1, 1, 1]
+    4. Applies Hounsfield unit transformation and bone removal
+    5. Extracts region of interest based on lung masks
+    6. Transforms nodule label coordinates to match the resampled and cropped volume
+    7. Saves processed scan and labels as separate .npy files
+    Args:
+        id (int): Index into scanpath_list to identify which scan to process
+        scanpath_list (list): List of pathlib.Path objects pointing to scan files
+        prep_folder (str): Directory path where output .npy files will be saved
+        use_existing (bool, optional): If True, skip processing if output files already exist. Defaults to True.
+        metadata_path (str, optional): Path to CSV file containing nodule metadata. Expected columns:
+            - 'scan_id' (str): Identifier matching scan filename stem
+            - 'nodule_x_coordinate' (float): X coordinate in mm
+            - 'nodule_y_coordinate' (float): Y coordinate in mm
+            - 'nodule_z_coordinate' (float): Z coordinate in mm
+            - 'nodule_diameter_mm' (float): Nodule diameter in millimeters
+            Metadata is filtered using pandas boolean indexing: metadata[metadata.scan_id==scan_id]
+            Defaults to None, which results in empty label array.
+    Returns:
+        None
+    Outputs:
+        - {scan_id}_clean.npy: Preprocessed CT scan volume with shape (1, H, W, D)
+        - {scan_id}_label.npy: Array of nodule labels with shape (N, 4) where columns are [z, x, y, diameter]
+    """
 
     resolution = np.array([1,1,1])
     scan_path = scanpath_list[id]
@@ -182,7 +212,7 @@ def savenpy_summit(id, scanpath_list, prep_folder, use_existing=True, metadata_p
             ]]
             metadata = metadata[metadata.scan_id==scan_id]
             label = metadata.to_numpy()
-            label = label[:,[3, 1, 2, 4]].astype('float')
+            label = label[:,[3, 2, 1, 4]].astype('float')
         else:
             label = []
 
@@ -224,22 +254,6 @@ def savenpy_summit(id, scanpath_list, prep_folder, use_existing=True, metadata_p
         sliceim = sliceim2[np.newaxis,...]
         np.save(os.path.join(prep_folder,scan_id+'_clean'),sliceim)
 
-
-        # if len(label)==0:
-        #     label2 = np.array([[0,0,0,0]])
-        # elif len(label[0])==0:
-        #     label2 = np.array([[0,0,0,0]])
-        # elif label[0][0]==0:
-        #     label2 = np.array([[0,0,0,0]])
-        # else:
-        #     haslabel = 1
-        #     label2 = np.copy(label).T
-        #     label2[:3] = label2[:3][[0,2,1]]
-        #     label2[:3] = label2[:3]*np.expand_dims(spacing,1)/np.expand_dims(resolution,1)
-        #     label2[3] = label2[3]*spacing[1]/resolution[1]
-        #     label2[:3] = label2[:3]-np.expand_dims(extendbox[:,0],1)
-        #     label2 = label2[:4].T
-
         if len(label)==0:
             labels = np.array([[0,0,0,0]])
         elif len(label[0])==0:
@@ -250,15 +264,11 @@ def savenpy_summit(id, scanpath_list, prep_folder, use_existing=True, metadata_p
             haslabel = 1
             labels = []
             for idx in range(len(label)):
-                cri = label[idx]
-
-                
-                cri[:3] = (label[idx][:3][[0,2,1]] - origin) / spacing
+                cri = label[idx]                
+                cri[:3] = (label[idx][:3] - origin) / spacing
                 cri[:3] = cri[:3] * (spacing / resolution)
                 cri[:3] = cri[:3] - extendbox[:,0]
-
                 cri[3] = cri[3] * (spacing[1] / resolution[1])
-                
                 labels.append(cri)
 
         try:
@@ -273,13 +283,11 @@ def savenpy_summit(id, scanpath_list, prep_folder, use_existing=True, metadata_p
         print(f'bug in {scan_id}, error:{err.__str__()}')
 
     print(scan_id+' done')
-
     
 def full_prep(data_path,prep_folder,n_worker = None, use_existing=True, metadata_path=None):
     warnings.filterwarnings("ignore")
     if not os.path.exists(prep_folder):
         os.mkdir(prep_folder)
-
             
     print('starting preprocessing')
 
@@ -312,9 +320,25 @@ def full_prep(data_path,prep_folder,n_worker = None, use_existing=True, metadata
     print('end preprocessing')
     return filelist
 
-
 def full_prep_summit(data_path, prep_folder, scanlist_path, n_worker = None, use_existing=True, metadata_path=None):
-    
+    """
+    Preprocess SUMMIT scan data and save as numpy arrays.
+    This function loads scan files, validates them against a scanlist, and converts them
+    to numpy format for model training. Supports parallel processing for efficiency.
+    Note: Added by JM to support preparation of SUMMIT scans.
+    Args:
+        data_path (str): Path to the root directory containing scan files (.mhd format).
+        prep_folder (str): Path to the output folder where preprocessed numpy files will be saved.
+        scanlist_path (str): Path to CSV file containing 'scan_id' column with valid scan identifiers.
+        n_worker (int, optional): Number of worker processes for parallel processing. 
+                                   If > 1, uses multiprocessing Pool. Defaults to None (sequential processing).
+        use_existing (bool, optional): If True, skips preprocessing for already existing files. Defaults to True.
+        metadata_path (str, optional): Path to metadata file for additional scan information. Defaults to None.
+    Returns:
+        list: List of Path objects pointing to all located scan files (.mhd) matching the scanlist.
+    """
+
+
     warnings.filterwarnings("ignore")
 
     if not os.path.exists(prep_folder):
@@ -329,18 +353,6 @@ def full_prep_summit(data_path, prep_folder, scanlist_path, n_worker = None, use
         for scan_path in Path(data_path).rglob('*.mhd')
         if scan_path.is_file() and scan_path.name.replace('.mhd', '') in scan_ids
     ]
-
-    # for scan_id in pandas.read_csv(scanlist_path)['scan_id'].tolist():
-    #     if os.path.exists(os.path.join(data_path, scan_id.split('_')[0], scan_id+'.mhd')):
-    #         scan_paths.append(os.path.join(data_path, scan_id.split('_')[0], scan_id+'.mhd'))
-    #     else:
-    #         print(f"Scan is not cached:{os.path.join(data_path, scan_id.split('_')[0], scan_id+'.mhd')}", flush=True)
-
-    # filelist = [
-    #     scan_id
-    #     for scan_id in pandas.read_csv(scanlist_path)['scan_id'].tolist()
-    #     if os.path.exists(os.path.join(data_path, scan_id.split('_')[0], scan_id+'.mhd'))
-    # ]
 
     N = len(scan_paths)
 

@@ -1,39 +1,39 @@
 import argparse
-from datetime import datetime
 import json
 import os
+import shutil
+import sys
 import time
-import numpy as np
-import data
+from datetime import datetime
 from importlib import import_module
 from pathlib import Path
-import shutil
-from utils import *
-import sys
-sys.path.append('../')
-from split_combine import SplitComb
 
+import numpy as np
+from utils import *
+
+import data
+
+sys.path.append('../')
 import torch
-from torch.nn import DataParallel
-from torch.backends import cudnn
-from torch.utils.data import DataLoader
+from layers import acc
+from pynvml import (nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo,
+                    nvmlInit)
+from split_combine import SplitComb
 from torch import optim
 from torch.autograd import Variable
-
-
-from layers import acc
-
-from pynvml import nvmlInit, nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo
+from torch.backends import cudnn
+from torch.nn import DataParallel
+from torch.utils.data import DataLoader
 
 parser = argparse.ArgumentParser(description='PyTorch DataBowl3 Detector')
 
-parser.add_argument('--model', '-m', metavar='MODEL', default='base',
+parser.add_argument('--model', '-m', metavar='MODEL', default='res18',
                     help='model')
 
 parser.add_argument('-j', '--workers', default=32, type=int, metavar='N',
                     help='number of data loading workers (default: 32)')
 
-parser.add_argument('--epochs', default=100, type=int, metavar='N',
+parser.add_argument('--epochs', default=300, type=int, metavar='N',
                     help='number of total epochs to run')
 
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
@@ -57,14 +57,8 @@ parser.add_argument('--save-freq', default='10', type=int, metavar='S',
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 
-parser.add_argument('--data-dir', default='', type=str, metavar='SAVE',
-                    help='directory to save checkpoint (default: none)')
-
 parser.add_argument('--save-dir', default='', type=str, metavar='SAVE',
                     help='directory to save checkpoint (default: none)')
-
-parser.add_argument('--metadata-dir', default='', type=str, metavar='SAVE',
-                    help='directory where the metadata is stored (default: none)')
 
 parser.add_argument('--test', default=0, type=int, metavar='TEST',
                     help='1 do test evaluation, 0 not')
@@ -78,8 +72,30 @@ parser.add_argument('--gpu', default='all', type=str, metavar='N',
 parser.add_argument('--n_test', default=8, type=int, metavar='N',
                     help='number of gpu for test')
 
+# JM added arguments to support training of different SUMMIT dataset slices
+
+parser.add_argument('--data-dir', default='', type=str, metavar='SAVE',
+                    help='preprocessed data directory (default: none)')
+
+parser.add_argument('--metadata-dir', default='', type=str, metavar='SAVE',
+                    help='directory where the metadata is stored (default: none)')
 
 def print_gpu_stats(device, msg, debug=False):
+    """
+    Prints GPU memory statistics for the specified device.
+
+    This function checks if the device is a CUDA device and, if so, prints the 
+    total, free, and used GPU memory before and after clearing the CUDA cache. 
+    It is useful for debugging memory usage during model training or inference.
+
+    Parameters:
+    device (torch.device): The device to check (e.g., CUDA or CPU).
+    msg (str): A message to print before displaying GPU stats.
+    debug (bool): If True, enables detailed GPU memory output. Default is False.
+
+    Note:
+    JM added this function for monitoring GPU memory usage.
+    """
 
     if device.type == 'cuda' and debug==True:
         print(msg)
@@ -98,6 +114,18 @@ def print_gpu_stats(device, msg, debug=False):
         print(f'used     : {info.used}', flush=True)    
 
 def load_scan_list(path_to_scan_list):
+    """
+    Load a list of scan IDs from a file.
+    Supports loading from .npy (NumPy) or .csv (comma-separated values) files.
+    If the file format is neither .npy nor .csv, returns an empty list.
+    Args:
+        path_to_scan_list: Path object pointing to the scan list file (.npy or .csv format)
+    Returns:
+        list: List of scan IDs loaded from the file, or empty list if format is unsupported
+    Note:
+        JM added to support SUMMIT training
+    """
+
     if path_to_scan_list.as_posix().endswith('.npy'):
         return np.load(path_to_scan_list)
     
@@ -117,18 +145,19 @@ def main():
     
     torch.manual_seed(0)
 
+    # JM added device selection for SUMMIT
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    #torch.cuda.set_device(0)
-
+    # JM added gpu debug prints
     print_gpu_stats(device, 'Main')
 
     model = import_module(args.model)
     config, net, loss, get_pbb = model.get_model()
     start_epoch = args.start_epoch
     save_dir = args.save_dir
-    
+
+    # JM added gpu debug prints    
     print_gpu_stats(device, 'After importing model')
 
     if args.resume:
@@ -159,13 +188,7 @@ def main():
         for f in pyfiles:
             shutil.copy(f,os.path.join(save_dir,f))
 
-    #n_gpu = setgpu(args.gpu)
-    #args.n_gpu = n_gpu
-    #net = net.cuda()
-    #loss = loss.cuda()
-    #cudnn.benchmark = True
-    #net = DataParallel(net)
-
+    # JM updated gpu setting for options for CPU/GPU
     net = net.to(device)
     if use_cuda:
         cudnn.benchmark = True
@@ -177,10 +200,12 @@ def main():
         margin = 32
         sidelen = 144
 
-        split_comber = SplitComb(sidelen,config['max_stride'],
-                                 config['stride'],
-                                 margin,
-                                 config['pad_value'])
+        split_comber = SplitComb(
+            sidelen,config['max_stride'],
+            config['stride'],
+            margin,
+            config['pad_value']
+        )
 
         dataset = data.DataBowl3Detector(
             datadir,
@@ -197,12 +222,11 @@ def main():
             collate_fn = data.collate,
             pin_memory=False)
         
+        # JM added gpu debug prints
         print_gpu_stats(device, 'After getting tst ds')
         test(test_loader, net, get_pbb, save_dir, config, device)
         return
 
-    #net = DataParallel(net)
-    
     dataset = data.DataBowl3Detector(
         datadir,
         load_scan_list(Path(args.metadata_dir, 'training_scans.csv')),
