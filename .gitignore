@@ -72,6 +72,7 @@ ENV/
 
 # IDE
 .vscode/
+.metaflow/
 .idea/
 *.swp
 *.swo
@@ -84,7 +85,6 @@ Thumbs.db
 data/
 docs/
 lsut/
-.metaflow/
 cache/
 images/
 logs/
@@ -92,6 +92,7 @@ metadata/
 miccai_fair_ai/
 results/
 notebooks/
+workflows/FairnessInNoduleDetectionAlgorithms/
 
 # Remove submission files (powerpoint, pdf, etc.)
 *.ppt
